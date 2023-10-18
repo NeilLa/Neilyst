@@ -8,23 +8,19 @@
 
 Neilyst/
 |-- neilyst/
-|   |-- __init__.py
 |
-|   |-- DataManager/
-|   |   |-- __init__.py
-|   |   |-- fetcher.py     # 数据获取功能
-|   |   |-- cleaner.py     # 数据清洗功能
-|   |   |-- aggregator.py  # 时间序列聚合功能
+|   |-- DataManager
+|   |   |-- fetcher     # 数据获取功能
+|   |   |-- cleaner     # 数据清洗功能
+|   |   |-- aggregator  # 时间序列聚合功能
 |
-|   |-- Analytics/
-|   |   |-- __init__.py
-|   |   |-- indicators.py  # 指标计算功能
-|   |   |-- visualizer.py  # 数据可视化功能
+|   |-- Analytics
+|   |   |-- indicators  # 指标计算功能
+|   |   |-- visualizer  # 数据可视化功能
 |
-|   |-- Strategy/
-|   |   |-- __init__.py
-|   |   |-- evaluator.py   # 策略评估功能
-|   |   |-- example_strategy.py  # 示例策略
+|   |-- Strategy
+|   |   |-- evaluator   # 策略评估功能
+|   |   |-- example_strategy  # 示例策略
 |
 |-- tests/                 # 单元测试和其他测试
 |   |-- data_manager/
@@ -36,3 +32,7 @@ Neilyst/
 |
 |-- setup.py               # Python包的安装和配置脚本
 |-- README.md
+
+## 3. User Dairy
+
+对于数据获取，我希望能够简单的设定币种，现货还是合约，时间起点和终点，时间周期，数据类型这几个变量。就可以拉下来数据，自动整理为dataframe格式，并可以通过show方法展示部分数据，以及可以通过save方法落盘。落盘的地址默认为当前目录下，也可以手动在config文件中设置。交易所的名称和其他弱相关变量，最好也能默认指定而不是每次都需要手动输入。对于已经落盘的数据，应当可以通过load方法直接读取，并输出相关信息，例如开始和结束的时间，时间周期，币种，数据类型等等。这个load应该需要更加智能一些，例如如果只键入币种的话应该默认读取所有该币种的数据，如果时间周期一致的话。

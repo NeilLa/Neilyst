@@ -1,22 +1,11 @@
-import configparser
 import os
 import pandas as pd
-import ccxt
 import mplfinance as mpf
+from Neilyst import Neilyst
 
-class Fetcher:
-    def __init__(self) -> None:
-        config = configparser.ConfigParser()
-        config.read('config.ini')
-
-        self.exchange_name = config.get('DEFAULT', 'exchange_name', fallback='binance')
-        proxy = config.get('DEFAULT', 'proxy', fallback=None)
-        timeout = config.getint('DEFAULT', 'timeout', fallback=10000)
-
-        self.exchange = getattr(ccxt, self.exchange_name)()
-        self.exchange.httpsProxy = proxy
-        self.exchange.timeout = timeout
-        self.data = None
+class Fetcher(Neilyst):
+    def __init__(self, exchange_name):
+        Neilyst.__init__(self, exchange_name)
 
     def fetch(self, symbol, start_date, end_date, timeframe='1d'):
         self.file_name = f'{self.exchange_name}-{start_date}-{end_date}-{timeframe}'
@@ -70,7 +59,7 @@ class Aggregator:
         pass
 
 if __name__ == "__main__":
-    fetcher = Fetcher()
+    fetcher = Fetcher('binanceusdm')
     fetcher.fetch('BTC/USDT', '2022-01-01T00:00:00Z', '2022-02-01T00:00:00Z')
     fetcher.show()
 

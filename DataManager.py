@@ -1,9 +1,9 @@
 import os
 import pandas as pd
 import mplfinance as mpf
-from Neilyst import Neilyst
+from BaseNeilyst import BaseNeilyst
 
-class Fetcher(Neilyst):
+class Fetcher(BaseNeilyst):
     def __init__(self, exchange_name):
         super().__init__(exchange_name)
 

@@ -43,7 +43,7 @@ class Indicators(Fetcher):
 
         self.indicators[f'EMA{l}'] = self.ohlcv_data['close'].ewm(span=l, adjust=False).mean()
 
-    def show(self, *args, show_candles=True) -> None:
+    def show_indicators(self, *args, show_candles=True) -> None:
         """
         Visualize the OHLCV data with the selected indicators.
 
@@ -76,25 +76,9 @@ class Indicators(Fetcher):
         mpf.plot(self.ohlcv_data, type=plot_type, addplot=apds, volume=True, show_nontrading=True, style='charles')
 
 
-    def show_all(self) -> None:
+    def show_all_indicators(self) -> None:
         """
         Visualize the OHLCV data with all available indicators.
         """
         # 调用show方法，没有提供指标名，函数会显示所有指标
-        self.show()
-
-if __name__ == "__main__":
-    # 初始化Indicators对象
-    indicators = Indicators('binanceusdm')
-    # 获取数据
-    indicators.fetch('BTC/USDT', '2022-01-01T00:00:00Z', '2022-02-01T00:00:00Z')
-    # 计算移动平均线和指数移动平均线
-    indicators.MA(5)  # 计算5天移动平均线
-    indicators.EMA(50)  # 计算50天指数移动平均线
-
-    print(indicators.indicators.head(10))
-    # 测试show方法，只显示MA和蜡烛图
-    indicators.show('MA5', 'EMA50')
-
-    # # 测试show_all方法，显示所有指标和蜡烛图
-    # indicators.show_all()
+        self.show_indicators()

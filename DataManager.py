@@ -43,7 +43,7 @@ class Fetcher(BaseNeilyst):
         
         self.ohlcv_data = pd.read_csv(filename, index_col='date', parse_dates=True)
 
-    def show(self):
+    def show_ohlcv(self):
         if self.ohlcv_data is None:
             raise ValueError("Data not available!")
         
@@ -58,11 +58,6 @@ class Aggregator:
     def __init__(self) -> None:
         pass
 
-if __name__ == "__main__":
-    fetcher = Fetcher('binanceusdm')
-    fetcher.fetch('BTC/USDT', '2022-01-01T00:00:00Z', '2022-02-01T00:00:00Z')
-    # fetcher.show()
-    print(fetcher.ohlcv_data.head())
 
 
 

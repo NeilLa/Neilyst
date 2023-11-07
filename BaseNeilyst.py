@@ -19,3 +19,4 @@ class BaseNeilyst():
 
         self.fee_rate = config.getfloat('DEFAULT', 'fee', fallback=0.00015)
         self.slippage_rate = config.getfloat("DEFAULT", 'slippage', fallback=0.00005)
+        self.init_amount = config.getint('DEFAULT', 'amount', fallback=10000)

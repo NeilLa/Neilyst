@@ -1,4 +1,6 @@
 from Analytics import Indicators
+import matplotlib.pyplot as plt
+from matplotlib.dates import DateFormatter
 import pandas as pd
 
 class Strategy(Indicators):
@@ -28,9 +30,15 @@ class Strategy(Indicators):
 
         # 运行回测
         for index, row in self.data.iterrows():
-            signal = strategy.check_signal(index, row)
+            signal = strategy.check_signal(index, row, self.data, self.pos)
             if signal:
-                self.trade(signal, index,row)
+                self.trade(signal, index, row)
+            else:
+                # 如果没有信号，则更新大表数据即可
+                self.data.at[index, 'pos'] += self.pos
+                self.data.at[index, 'balance'] = self.balance 
+                self.data.at[index, 'total'] = self.balance + self.pos * self.data.at[index, 'close']
+                self.data.at[index, 'entry_price'] = self.entry_price
 
     def trade(self, signal, index, row) -> None:
         # 假设当前价格即为close价格
@@ -96,6 +104,7 @@ class Strategy(Indicators):
                 self.balance += self.pos * sell_price - fee
                 self.total = self.balance
                 self.pos = 0
+                self.entry_price = 0
 
                 # 更新大表
                 self.data.at[index, 'pos'] = self.pos
@@ -117,6 +126,7 @@ class Strategy(Indicators):
                 self.balance += self.pos * buy_price - fee
                 self.total = self.balance
                 self.pos = 0
+                self.entry_price = 0
         
                 # 更新大表
                 self.data.at[index, 'pos'] = self.pos
@@ -127,19 +137,73 @@ class Strategy(Indicators):
                 # 更新交易记录
                 self.trade_record.loc[index] = [signal, buy_price, amount, pnl]
 
+    def evaluate(self) -> None:
+        if self.trade_record.empty:
+            print("No trade records.")
+            return
 
-class myStrategy():
-    def check_signal(self, index, row):
-        pass
+        # 计算胜率
+        wins = self.trade_record[self.trade_record['pnl'] > 0]
+        all_close = self.trade_record[self.trade_record['signal'] == 'close']
+        all_take_profit = self.trade_record[self.trade_record['signal'] == 'take_profit']
+        all_stop_loss = self.trade_record[self.trade_record['signal'] == 'stop_loss']
+        win_rate = len(wins) / (len(all_close) + len(all_take_profit) + len(all_stop_loss))  
+        
+        # 计算盈亏比
+        average_win = wins['pnl'].mean() if len(wins) > 0 else 0
+        losses = self.trade_record[self.trade_record['pnl'] < 0]
+        average_loss = losses['pnl'].mean() if len(losses) > 0 else 0
+        profit_loss_ratio = -average_win/average_loss if average_loss != 0 else 0
 
+        # 计算最大回撤
+        running_capital = self.data['total'].cummax()
+        drawdown = (running_capital - self.data['total']) / running_capital
+        max_drawdown = drawdown.max()
+
+        # 计算收益率
+        final_return = self.data['total'].iloc[-1] / self.data['total'].iloc[0] - 1
+
+        # 打印结果
+        print(f"胜率: {win_rate:.2f}")
+        print(f"盈亏比: {profit_loss_ratio:.2f}")
+        print(f"最大回撤: {max_drawdown:.2f}")
+        print(f"收益率: {final_return:.2f}")
     
-if __name__ == "__main__":
-    btc = Strategy('binanceusdm')
-    btc.fetch('BTC/USDT', '2022-01-01T00:00:00Z', '2022-02-01T00:00:00Z', timeframe='1d')
+    def show_pnl(self) -> None:
+        # 设定绘图风格
+        plt.style.use('seaborn-darkgrid')
 
-    btc.MA(20)
-    btc.MA(60)
+        # 创建图形和轴
+        fig, ax1 = plt.subplots(figsize=(14, 7))
 
-    btc.run_backtest('test')
-    print(btc.data.head())
-    print(btc.trade_record)
+        # 绘制价格曲线
+        for i in range(1, len(self.data)):
+            if self.data['pos'][i] > 0:  # 持有多头仓位
+                ax1.plot(self.data.index[i-1:i+1], self.data['close'][i-1:i+1], color='green')
+            elif self.data['pos'][i] < 0:  # 持有空头仓位
+                ax1.plot(self.data.index[i-1:i+1], self.data['close'][i-1:i+1], color='red')
+            else:  # 无仓位
+                ax1.plot(self.data.index[i-1:i+1], self.data['close'][i-1:i+1], color='gray')
+
+        # 添加总资产曲线
+        ax2 = ax1.twinx()
+        ax2.plot(self.data.index, self.data['total'], color='blue', linestyle='--')
+
+        # 设置轴标签和图例
+        ax1.set_xlabel('Date')
+        ax1.set_ylabel('Close Price', color='black')
+        ax2.set_ylabel('Total Value', color='blue')
+        ax1.tick_params(axis='y', labelcolor='black')
+        ax2.tick_params(axis='y', labelcolor='blue')
+        ax1.legend(['Close Price'], loc='upper left')
+        ax2.legend(['Total Value'], loc='upper right')
+
+        # 设置x轴日期格式
+        # 设置x轴日期格式
+        date_form = DateFormatter("%m-%d")
+        ax1.xaxis.set_major_formatter(date_form)
+
+        # 显示图形
+        plt.title('Close Price with Trading Position and Total Value Over Time')
+        plt.show()
+

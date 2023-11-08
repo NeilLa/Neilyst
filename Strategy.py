@@ -19,17 +19,18 @@ class Strategy(Indicators):
         self.data['pos'] = 0
         self.data['balance'] = 0
         self.data['total'] = 0
+        self.data['entry_price'] = 0
         
         self.balance = self.init_amount
         self.total = self.init_amount
+        self.pos = 0
+        self.entry_price = 0
 
         # 运行回测
         for index, row in self.data.iterrows():
-            # signal = strategy.check_signal(index, row)
-            signal = 'long'
+            signal = strategy.check_signal(index, row)
             if signal:
                 self.trade(signal, index,row)
-            break
 
     def trade(self, signal, index, row) -> None:
         # 假设当前价格即为close价格
@@ -46,11 +47,14 @@ class Strategy(Indicators):
             # 更新全局数据
             self.balance = 0
             self.total = self.balance + long_amount * long_price
+            self.pos += long_amount
+            self.entry_price = long_price
             
             # 更新大表数据
             self.data.at[index, 'pos'] += long_amount
             self.data.at[index, 'balance'] = self.balance 
             self.data.at[index, 'total'] = self.total
+            self.data.at[index, 'entry_price'] = long_price
             
             # 更新交易记录
             self.trade_record.loc[index] = [signal,long_price, long_amount, 0]
@@ -66,16 +70,62 @@ class Strategy(Indicators):
             # 更新全局数据
             self.balance += amount_to_invest
             self.total = self.balance - short_amount * short_price - fee
+            self.pos -= short_amount
+            self.entry_price = short_price
 
             # 更新大表数据
             self.data.at[index, 'pos'] -= short_amount
             self.data.at[index, 'balance'] = self.balance 
             self.data.at[index, 'total'] = self.total
+            self.data.at[index, 'entry_price'] = short_price
 
             # 更新交易记录
             self.trade_record.loc[index] = [signal,short_price, short_amount, 0]
         
+        # 平仓
+        elif signal == 'close' or 'take_profit' or 'stop_loss':
+            # 平多仓， 以当前价格卖出
+            if self.pos > 0:
+                # 价格处理
+                sell_price = price * (1 - self.slippage_rate)
+                amount = self.pos
+                fee = self.pos * sell_price * self.fee_rate
+                pnl = (sell_price - self.entry_price) * self.pos
 
+                # 更新全局
+                self.balance += self.pos * sell_price - fee
+                self.total = self.balance
+                self.pos = 0
+
+                # 更新大表
+                self.data.at[index, 'pos'] = self.pos
+                self.data.at[index, 'balance'] = self.balance
+                self.data.at[index, 'total'] = self.total
+                self.data.at[index, 'entry_price'] = self.entry_price
+
+                # 更新交易记录
+                self.trade_record.loc[index] = [signal, sell_price, amount, pnl]
+            
+            if self.pos < 0:
+                # 价格处理
+                buy_price = price * (1 + self.slippage_rate)
+                amount = self.pos
+                fee = abs(self.pos) * buy_price * self.fee_rate
+                pnl = (buy_price - self.entry_price) * self.pos
+
+                # 更新全局
+                self.balance += self.pos * buy_price - fee
+                self.total = self.balance
+                self.pos = 0
+        
+                # 更新大表
+                self.data.at[index, 'pos'] = self.pos
+                self.data.at[index, 'balance'] = self.balance
+                self.data.at[index, 'total'] = self.total
+                self.data.at[index, 'entry_price'] = self.entry_price
+
+                # 更新交易记录
+                self.trade_record.loc[index] = [signal, buy_price, amount, pnl]
 
 
 class myStrategy():
@@ -92,3 +142,4 @@ if __name__ == "__main__":
 
     btc.run_backtest('test')
     print(btc.data.head())
+    print(btc.trade_record)

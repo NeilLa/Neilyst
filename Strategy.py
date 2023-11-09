@@ -15,7 +15,7 @@ class Strategy(Indicators):
         self.__get_data()
         
         # 初始化交易记录
-        self.trade_record = pd.DataFrame(columns=['signal', 'price', 'amount', 'pnl'])
+        self.trade_record = pd.DataFrame(columns=['date', 'signal', 'price', 'amount', 'pnl'])
 
         # 设置初始值
         self.data['pos'] = 0
@@ -40,11 +40,18 @@ class Strategy(Indicators):
                 self.data.at[index, 'total'] = self.balance + self.pos * self.data.at[index, 'close']
                 self.data.at[index, 'entry_price'] = self.entry_price
 
-    def trade(self, signal, index, row) -> None:
+    def trade(self, signals, index, row) -> None:
         # 假设当前价格即为close价格
         price = row['close']
         
-        # 开多仓
+        for signal in signals:
+            if signal == 'long' or signal == 'short':
+                self.open_position(signal, index, price)
+            if signal == 'close' or signal == 'take_profit' or signal == 'stop_loss':
+                self.close_position(signal, index, price)
+
+    def open_position(self, signal, index, price) -> None:
+       # 开多仓
         if signal == 'long':
             # 价格处理
             long_price = price * (1 + self.slippage_rate) #考虑滑点
@@ -65,7 +72,8 @@ class Strategy(Indicators):
             self.data.at[index, 'entry_price'] = long_price
             
             # 更新交易记录
-            self.trade_record.loc[index] = [signal,long_price, long_amount, 0]
+            record = pd.DataFrame([[index, signal, long_price, long_amount, 0]], columns=['date', 'signal', 'price', 'amount', 'pnl'])
+            self.trade_record = pd.concat([self.trade_record, record])
 
         # 开空仓
         elif signal == 'short':
@@ -88,54 +96,56 @@ class Strategy(Indicators):
             self.data.at[index, 'entry_price'] = short_price
 
             # 更新交易记录
-            self.trade_record.loc[index] = [signal,short_price, short_amount, 0]
+            record = pd.DataFrame([[index, signal, short_price, short_amount, 0]], columns=['date', 'signal', 'price', 'amount', 'pnl'])
+            self.trade_record = pd.concat([self.trade_record, record])
+
+    def close_position(self, signal, index, price) -> None:
+        # 平多仓， 以当前价格卖出
+        if self.pos > 0:
+            # 价格处理
+            sell_price = price * (1 - self.slippage_rate)
+            amount = self.pos
+            fee = self.pos * sell_price * self.fee_rate
+            pnl = (sell_price - self.entry_price) * self.pos
+
+            # 更新全局
+            self.balance += self.pos * sell_price - fee
+            self.total = self.balance
+            self.pos = 0
+            self.entry_price = 0
+
+            # 更新大表
+            self.data.at[index, 'pos'] = self.pos
+            self.data.at[index, 'balance'] = self.balance
+            self.data.at[index, 'total'] = self.total
+            self.data.at[index, 'entry_price'] = self.entry_price
+
+            # 更新交易记录
+            record = pd.DataFrame([[index, signal, sell_price, amount, pnl]], columns=['date', 'signal', 'price', 'amount', 'pnl'])
+            self.trade_record = pd.concat([self.trade_record, record])
         
-        # 平仓
-        elif signal == 'close' or 'take_profit' or 'stop_loss':
-            # 平多仓， 以当前价格卖出
-            if self.pos > 0:
-                # 价格处理
-                sell_price = price * (1 - self.slippage_rate)
-                amount = self.pos
-                fee = self.pos * sell_price * self.fee_rate
-                pnl = (sell_price - self.entry_price) * self.pos
+        if self.pos < 0:
+            # 价格处理
+            buy_price = price * (1 + self.slippage_rate)
+            amount = self.pos
+            fee = abs(self.pos) * buy_price * self.fee_rate
+            pnl = (buy_price - self.entry_price) * self.pos
 
-                # 更新全局
-                self.balance += self.pos * sell_price - fee
-                self.total = self.balance
-                self.pos = 0
-                self.entry_price = 0
+            # 更新全局
+            self.balance += self.pos * buy_price - fee
+            self.total = self.balance
+            self.pos = 0
+            self.entry_price = 0
+    
+            # 更新大表
+            self.data.at[index, 'pos'] = self.pos
+            self.data.at[index, 'balance'] = self.balance
+            self.data.at[index, 'total'] = self.total
+            self.data.at[index, 'entry_price'] = self.entry_price
 
-                # 更新大表
-                self.data.at[index, 'pos'] = self.pos
-                self.data.at[index, 'balance'] = self.balance
-                self.data.at[index, 'total'] = self.total
-                self.data.at[index, 'entry_price'] = self.entry_price
-
-                # 更新交易记录
-                self.trade_record.loc[index] = [signal, sell_price, amount, pnl]
-            
-            if self.pos < 0:
-                # 价格处理
-                buy_price = price * (1 + self.slippage_rate)
-                amount = self.pos
-                fee = abs(self.pos) * buy_price * self.fee_rate
-                pnl = (buy_price - self.entry_price) * self.pos
-
-                # 更新全局
-                self.balance += self.pos * buy_price - fee
-                self.total = self.balance
-                self.pos = 0
-                self.entry_price = 0
-        
-                # 更新大表
-                self.data.at[index, 'pos'] = self.pos
-                self.data.at[index, 'balance'] = self.balance
-                self.data.at[index, 'total'] = self.total
-                self.data.at[index, 'entry_price'] = self.entry_price
-
-                # 更新交易记录
-                self.trade_record.loc[index] = [signal, buy_price, amount, pnl]
+            # 更新交易记录
+            record = pd.DataFrame([[index, signal, buy_price, amount, pnl]], columns=['date', 'signal', 'price', 'amount', 'pnl'])
+            self.trade_record = pd.concat([self.trade_record, record])
 
     def evaluate(self) -> None:
         if self.trade_record.empty:

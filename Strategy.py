@@ -1,4 +1,4 @@
-from Analytics import Indicators
+from .Analytics import Indicators
 import matplotlib.pyplot as plt
 from matplotlib.dates import DateFormatter
 import pandas as pd
@@ -30,7 +30,7 @@ class Strategy(Indicators):
 
         # 运行回测
         for index, row in self.data.iterrows():
-            signal = strategy.check_signal(index, row, self.data, self.pos)
+            signal = strategy.check_signal(index, row, self.data, self.pos, self.trade_record)
             if signal:
                 self.trade(signal, index, row)
             else:

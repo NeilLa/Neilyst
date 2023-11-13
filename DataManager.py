@@ -8,7 +8,8 @@ class Fetcher(BaseNeilyst):
         super().__init__(exchange_name)
 
     def fetch(self, symbol, start_date, end_date, timeframe='1d'):
-        self.file_name = f'{self.exchange_name}-{start_date}-{end_date}-{timeframe}'
+        formatted_symbol = symbol.replace('/', '_')
+        self.file_name = f'{self.exchange_name}-{formatted_symbol}-{start_date}-{end_date}-{timeframe}'
         since = self.exchange.parse8601(start_date)
         end = self.exchange.parse8601(end_date)
 

@@ -1,4 +1,4 @@
-from .DataManager import Fetcher
+from DataManager import Fetcher
 import pandas as pd
 import mplfinance as mpf
 

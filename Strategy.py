@@ -1,4 +1,4 @@
-from .Analytics import Indicators
+from Analytics import Indicators
 import matplotlib.pyplot as plt
 from matplotlib.dates import DateFormatter
 import pandas as pd

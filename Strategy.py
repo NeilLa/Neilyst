@@ -175,7 +175,7 @@ class Strategy(Indicators):
 
         # 打印结果
         print(f"胜率: {win_rate:.2f}")
-        print(f"交易次数: {all_close:.2f}")
+        print(f"交易次数: {len(all_close):.2f}")
         print(f"盈亏比: {profit_loss_ratio:.2f}")
         print(f"最大回撤: {max_drawdown:.2f}")
         print(f"收益率: {final_return:.2f}")

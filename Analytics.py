@@ -28,6 +28,26 @@ class Indicators(Fetcher):
         ma_series_filled = ma_series.fillna(method='bfill')
     
         self.indicators[f'MA{l}'] = ma_series_filled
+    
+    def VolumeMA(self, l) -> None:
+        """
+        Calculate the Moving Average of Volume for the given length 'l'.
+
+        l: Length of the window for the moving average.
+
+        """
+
+        if self.ohlcv_data is None:
+            raise ValueError("OHLCV data not available for calculation!")
+        
+        if self.indicators is None:
+            self.__set_index()
+
+        ma_series = self.ohlcv_data['volume'].rolling(window=l).mean()
+        # Forward fill the NaN values
+        ma_series_filled = ma_series.fillna(method='bfill')
+    
+        self.indicators[f'VolumeMA{l}'] = ma_series_filled
 
     def EMA(self, l) -> None:
         """

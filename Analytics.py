@@ -63,6 +63,67 @@ class Indicators(Fetcher):
 
         self.indicators[f'EMA{l}'] = self.ohlcv_data['close'].ewm(span=l, adjust=False).mean()
     
+
+    def Boll(self, l=20, n_std=2):
+        """
+        Calculate Bollinger Bands.
+
+        l: Length of the window for the moving average.
+        n_std: Number of standard deviations from the moving average.
+        """
+        if self.ohlcv_data is None:
+            raise ValueError("OHLCV data not available for calculation!")
+
+        if self.indicators is None:
+            self.__set_index()
+
+        # 计算中间线，即简单移动平均线
+        middle_band = self.ohlcv_data['close'].rolling(window=l).mean()
+
+        # 计算标准差
+        std = self.ohlcv_data['close'].rolling(window=l).std()
+
+        # 计算上下轨
+        upper_band = middle_band + (n_std * std)
+        lower_band = middle_band - (n_std * std)
+
+        # 将布林带添加到指标数据中
+        self.indicators['Bollinger_upper'] = upper_band
+        self.indicators['Bollinger_middle'] = middle_band
+        self.indicators['Bollinger_lower'] = lower_band
+    
+    def RSI(self, period=14):
+        """
+        Calculate the Relative Strength Index (RSI).
+
+        period: The number of periods to calculate the RSI over.
+        """
+        if self.ohlcv_data is None:
+            raise ValueError("OHLCV data not available for calculation!")
+
+        if self.indicators is None:
+            self.__set_index()
+
+        # 计算价格变化
+        delta = self.ohlcv_data['close'].diff()
+
+        # 计算涨跌幅度
+        gain = delta.where(delta > 0, 0)
+        loss = -delta.where(delta < 0, 0)
+
+        # 计算平均涨跌幅度
+        avg_gain = gain.rolling(window=period, min_periods=period).mean()
+        avg_loss = loss.rolling(window=period, min_periods=period).mean()
+
+        # 计算相对强度（RS）
+        rs = avg_gain / avg_loss
+
+        # 计算RSI
+        rsi = 100 - (100 / (1 + rs))
+
+        # 将RSI添加到指标数据中
+        self.indicators[f'RSI{period}'] = rsi.fillna(0)
+
     def ATR(self, period=14) -> None:
         """
         Calculate the Average True Range (ATR) for the given period.

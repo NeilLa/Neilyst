@@ -10,6 +10,34 @@ class Indicators(Fetcher):
     def __set_index(self) -> None:
         self.indicators = pd.DataFrame(index=self.ohlcv_data.index)
 
+    def MAX(self, l) -> None:
+        """
+        Calculate the Max value for the high price.
+        l: Length of the window for the max window.
+        """
+
+        if self.ohlcv_data is None:
+            raise ValueError("OHLCV data not available for calculation!")
+        
+        if self.indicators is None:
+            self.__set_index()
+
+        self.indicators[f'MAX{l}'] = self.ohlcv_data['high'].rolling(window=l).max()
+    
+    def MIN(self, l) -> None:
+        """
+        Calculate the Min value for the low price.
+        l: Length of the window for the max window.
+        """
+
+        if self.ohlcv_data is None:
+            raise ValueError("OHLCV data not available for calculation!")
+        
+        if self.indicators is None:
+            self.__set_index()
+
+        self.indicators[f'MIN{l}'] = self.ohlcv_data['low'].rolling(window=l).max()
+        
     def MA(self, l) -> None:
         """
         Calculate the Moving Average for the given length 'l'.

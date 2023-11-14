@@ -172,6 +172,18 @@ class Indicators(Fetcher):
         rsrs = pd.Series(index=self.ohlcv_data.index)
         rsrs_standardized = pd.Series(index=self.ohlcv_data.index)
 
+        """
+        使用收盘价和移动平均线回归
+        市场趋势反映：这种方法关注的是收盘价与其移动平均线之间的关系，可以视为市场价格与其近期趋势之间的相对强度。
+        适用性：如果您的策略重点是捕捉基于价格趋势的动态，那么这种方法可能更适用。
+        平稳性：收盘价通常比高低价更平稳，这可能使得基于它的回归分析结果更加稳定。
+
+        使用最高价和最低价回归
+        价格波动捕捉：这种方法通过分析最高价和最低价之间的关系，旨在捕捉市场在特定周期内的波动性。
+        适用性：如果您的策略更侧重于识别市场的波动范围和潜在的反转点，这种方法可能更合适。
+        反应性：最高价和最低价能够更快地反应市场的极端变化，这可能对于寻找交易机会或风险管理特别有价值。
+        """
+        
         # 遍历数据并计算每个窗口的RSRS
         for i in range(l - 1, len(self.ohlcv_data)):
             if method == 'high/low':
@@ -261,6 +273,31 @@ class Indicators(Fetcher):
 
         self.indicators['SuperTrend'] = supertrend
 
+    def PVT(self, ema_length=21):
+        """
+        Calculate the Price Volume Trend (PVT) indicator and its EMA signal line.
+
+        ema_length: Length of the EMA window for the signal line.
+        """
+        if self.ohlcv_data is None:
+            raise ValueError("OHLCV data not available for calculation!")
+
+        if self.indicators is None:
+            self.__set_index()
+
+        # 初始化PVT指标
+        self.indicators['PVT'] = 0
+
+        # 计算PVT
+        for i in range(1, len(self.ohlcv_data)):
+            price_change_ratio = (self.ohlcv_data['close'][i] - self.ohlcv_data['close'][i - 1]) / self.ohlcv_data['close'][i - 1]
+            self.indicators['PVT'][i] = self.indicators['PVT'][i - 1] + (price_change_ratio * self.ohlcv_data['volume'][i])
+
+        # 填充第一个值为0
+        self.indicators['PVT'][0] = 0
+
+        # 计算PVT的EMA信号线
+        self.indicators['PVT_EMA'] = self.indicators['PVT'].ewm(span=ema_length, adjust=False).mean()
 
     def show_indicators(self, *args, show_candles=True) -> None:
         """

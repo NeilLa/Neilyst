@@ -180,6 +180,20 @@ class Strategy(Indicators):
         print(f"最大回撤: {max_drawdown:.2f}")
         print(f"收益率: {final_return:.2f}")
     
+    def show_profit_distribute(self) -> None:
+        if self.trade_record.empty:
+            print('No trade records.')
+            return
+        
+        profits = self.trade_record['pnl']
+
+        plt.figure(figsize=(10, 6))
+        plt.hist(profits, bins=20, color='blue', edgecolor='black', alpha=0.7)
+
+        plt.title('Profit Distribution')
+        plt.xlabel('Profit/Loss')
+        plt.ylabel('Frequency')
+    
     def show_pnl(self) -> None:
         # 设定绘图风格
         plt.style.use('seaborn-darkgrid')

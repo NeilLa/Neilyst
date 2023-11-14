@@ -3,3 +3,4 @@ __pycache__
 *.ipynb
 return.py
 binanceusdm*
+.DS_Store

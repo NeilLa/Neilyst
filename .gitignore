@@ -1,6 +1,6 @@
 __pycache__
 *.csv
 *.ipynb
-return.py
+return*
 binanceusdm*
 .DS_Store

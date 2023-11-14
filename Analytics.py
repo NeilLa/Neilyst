@@ -299,6 +299,41 @@ class Indicators(Fetcher):
         # 计算PVT的EMA信号线
         self.indicators['PVT_EMA'] = self.indicators['PVT'].ewm(span=ema_length, adjust=False).mean()
 
+    def VolatilityMA(self, l = 20):
+        """
+        Calculate the Volatility and MA Volatility.
+        """
+        if self.ohlcv_data is None:
+            raise ValueError("OHLCV data not available for calculation!")
+
+        if self.indicators is None:
+            self.__set_index()
+
+        spike = self.ohlcv_data['close'] - self.ohlcv_data['open']
+        self.indicators['Volatility'] = spike.abs()
+        self.indicators['VolatilityMA'] = self.indicators['Volatility'].rolling(window=l).mean()
+
+    def KDJ(self, n=9, m=3):
+        """
+        Calculate the KDJ indicator.
+
+        n: The lookback period to calculate RSV.
+        m: The smoothing period for K and D lines.
+        """
+        if self.ohlcv_data is None:
+            raise ValueError("OHLCV data not available for calculation!")
+
+        if self.indicators is None:
+            self.__set_index()
+
+        low_list = self.ohlcv_data['low'].rolling(n, min_periods=1).min()
+        high_list = self.ohlcv_data['high'].rolling(n, min_periods=1).max()
+        rsv = (self.ohlcv_data['close'] - low_list) / (high_list - low_list) * 100
+
+        self.indicators['K'] = rsv.ewm(alpha=1/m, adjust=False).mean()
+        self.indicators['D'] = self.indicators['K'].ewm(alpha=1/m, adjust=False).mean()
+        self.indicators['J'] = 3 * self.indicators['K'] - 2 * self.indicators['D']
+        
     def show_indicators(self, *args, show_candles=True) -> None:
         """
         Visualize the OHLCV data with the selected indicators.

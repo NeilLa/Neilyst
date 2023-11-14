@@ -1,6 +1,7 @@
 from DataManager import Fetcher
 import pandas as pd
 import mplfinance as mpf
+from scipy.stats import linregress
 
 class Indicators(Fetcher):
     def __init__(self, exchange_name) -> None:
@@ -153,6 +154,57 @@ class Indicators(Fetcher):
         # 将ATR添加到指标数据中
         self.indicators[f'ATR{period}'] = atr
     
+    def RSRS(self, l=18, max_window=250, method= 'high/low'):
+        """
+        Calculate the Relative Strength Regression Score (RSRS) with proper standardization.
+
+        l: Length of the window for the regression analysis.
+
+        method: Parameter selection of OLS, if method=high/low, then use the high price and low price for regression. Otherwise, method=close/ma, we will use the close price and close ma for regression.
+        """
+        if self.ohlcv_data is None:
+            raise ValueError("OHLCV data not available for calculation!")
+
+        if self.indicators is None:
+            self.__set_index()
+
+        # 初始化RSRS指标数组
+        rsrs = pd.Series(index=self.ohlcv_data.index)
+        rsrs_standardized = pd.Series(index=self.ohlcv_data.index)
+
+        # 遍历数据并计算每个窗口的RSRS
+        for i in range(l - 1, len(self.ohlcv_data)):
+            if method == 'high/low':
+                window_high = self.ohlcv_data['high'][i - l + 1:i + 1]
+                window_low = self.ohlcv_data['low'][i - l + 1:i + 1]
+                slope, _, _, _, _ = linregress(window_high, window_low)
+
+            elif method == 'close/ma':
+                window_prices = self.ohlcv_data['close'][i - l + 1:i + 1]
+                window_ma = self.ohlcv_data['close'].rolling(window=l).mean()[i - l + 1:i + 1]
+                slope, _, _, _, _ = linregress(window_prices, window_ma)
+
+            # 存储RSRS值
+            rsrs[i] = slope
+
+            # 标准化处理（使用截至当前的数据
+            # 请注意，这种标准化方法与原论文中不同
+            # 原论文中使用了未来函数，使得RSRS在全局上进行标准化
+            # 而我没有使用这种思路
+            # 全局标准化可能会有更好的回测结果，但并不能用于实盘交易
+            # 本方法可能会导致在数据集的初始阶段RSRS值较为敏感
+            # 因此在分析时需要特别注意
+            start = max(0, i - max_window + 1)
+            rsrs_mean = rsrs[start:i + 1].mean()
+            rsrs_std = rsrs[start:i + 1].std()
+            rsrs_standardized[i] = (rsrs[i] - rsrs_mean) / rsrs_std
+
+        # 将标准化后的RSRS值添加到指标数据中
+        self.indicators['RSRS_standardized'] = rsrs_standardized
+
+        # 将原始RSRS值也加入指标中
+        self.indicators['RSRS'] = rsrs
+
     def SuperTrend(self, period=7, multiplier=3) -> None:
         """
         Calculate the Super Trend indicator.

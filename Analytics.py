@@ -245,9 +245,9 @@ class Indicators(Fetcher):
         # 将原始RSRS值也加入指标中
         self.indicators['RSRS'] = rsrs
 
-    def SuperTrend(self, period=7, multiplier=3) -> None:
+    def SuperTrend(self, period=7, multiplier=3):
         """
-        Calculate the Super Trend indicator.
+        Calculate the Super Trend indicator according to TradingView's definition.
 
         period: The period for calculating ATR.
         multiplier: The multiplier for ATR to calculate basic upper and lower bands.
@@ -262,44 +262,34 @@ class Indicators(Fetcher):
         self.ATR(period)
         atr = self.indicators[f'ATR{period}']
 
-        # 基本上下轨
-        high = self.ohlcv_data['high']
-        low = self.ohlcv_data['low']
+        # 计算中心线及基本上下轨
+        hl2 = (self.ohlcv_data['high'] + self.ohlcv_data['low']) / 2
+        basic_upperband = hl2 + (multiplier * atr)
+        basic_lowerband = hl2 - (multiplier * atr)
 
-        basic_upperband = ((high + low) / 2) + (multiplier * atr)
-        basic_lowerband = ((high + low) / 2) - (multiplier * atr)
+        # 初始化超级趋势指标数组
+        superTrend = pd.Series(index=self.ohlcv_data.index)
 
-        # 最终上下轨
-        final_upperband = basic_upperband.copy()
-        final_lowerband = basic_lowerband.copy()
-
-        for i in range(1, len(final_upperband)):
-            # 更新最终上轨
-            if basic_upperband[i] < final_upperband[i - 1] or self.ohlcv_data['close'][i - 1] > final_upperband[i - 1]:
-                final_upperband[i] = basic_upperband[i]
-            else:
-                final_upperband[i] = final_upperband[i - 1]
-
-            # 更新最终下轨
-            if basic_lowerband[i] > final_lowerband[i - 1] or self.ohlcv_data['close'][i - 1] < final_lowerband[i - 1]:
-                final_lowerband[i] = basic_lowerband[i]
-            else:
-                final_lowerband[i] = final_lowerband[i - 1]
-
-        # 超级趋势
-        supertrend = pd.Series(index=self.ohlcv_data.index)
-        for i in range(len(supertrend)):
+        for i in range(len(self.ohlcv_data)):
             if i == 0:
-                supertrend[i] = final_lowerband[i]
+                superTrend[i] = basic_lowerband[i]
+                trendDirection = False
             else:
-                if self.ohlcv_data['close'][i] > final_upperband[i - 1]:
-                    supertrend[i] = final_lowerband[i]
-                elif self.ohlcv_data['close'][i] < final_lowerband[i - 1]:
-                    supertrend[i] = final_upperband[i]
+                # 更新趋势方向
+                if superTrend[i - 1] == basic_upperband[i - 1] and self.ohlcv_data['close'][i] > basic_upperband[i]:
+                    trendDirection = True
+                elif superTrend[i - 1] == basic_lowerband[i - 1] and self.ohlcv_data['close'][i] < basic_lowerband[i]:
+                    trendDirection = False
+                
+                # 更新最终上下轨
+                if trendDirection:
+                    superTrend[i] = basic_lowerband[i] if basic_lowerband[i] > superTrend[i - 1] else superTrend[i - 1]
                 else:
-                    supertrend[i] = supertrend[i - 1]
+                    superTrend[i] = basic_upperband[i] if basic_upperband[i] < superTrend[i - 1] else superTrend[i - 1]
 
-        self.indicators['SuperTrend'] = supertrend
+        # 将超级趋势添加到指标数据中
+        self.indicators['SuperTrend'] = superTrend
+
 
     def PVT(self, ema_length=21):
         """

@@ -245,50 +245,56 @@ class Indicators(Fetcher):
         # 将原始RSRS值也加入指标中
         self.indicators['RSRS'] = rsrs
 
-    def SuperTrend(self, period=7, multiplier=3):
-        """
-        Calculate the Super Trend indicator according to TradingView's definition.
-
-        period: The period for calculating ATR.
-        multiplier: The multiplier for ATR to calculate basic upper and lower bands.
-        """
+    def SuperTrend(self, atr_length=22, atr_multiplier=3.0, wicks=True):
         if self.ohlcv_data is None:
             raise ValueError("OHLCV data not available for calculation!")
-        
+
         if self.indicators is None:
             self.__set_index()
 
-        # 计算ATR
-        self.ATR(period)
-        atr = self.indicators[f'ATR{period}']
+        # 计算 ATR
+        self.ATR(atr_length)
+        atr = self.indicators[f'ATR{atr_length}'] * atr_multiplier
 
-        # 计算中心线及基本上下轨
-        hl2 = (self.ohlcv_data['high'] + self.ohlcv_data['low']) / 2
-        basic_upperband = hl2 + (multiplier * atr)
-        basic_lowerband = hl2 - (multiplier * atr)
+        # 高低价选择
+        highPrice = self.ohlcv_data['high'] if wicks else self.ohlcv_data['close']
+        lowPrice = self.ohlcv_data['low'] if wicks else self.ohlcv_data['close']
+        hl2 = (highPrice + lowPrice) / 2
 
-        # 初始化超级趋势指标数组
-        superTrend = pd.Series(index=self.ohlcv_data.index)
+        # 初始化长停和短停
+        longStop = hl2 - atr
+        shortStop = hl2 + atr
+
+        # 初始化趋势方向
+        trendDirection = False
+        superTrend = []
 
         for i in range(len(self.ohlcv_data)):
-            if i == 0:
-                superTrend[i] = basic_lowerband[i]
-                trendDirection = False
-            else:
-                # 更新趋势方向
-                if superTrend[i - 1] == basic_upperband[i - 1] and self.ohlcv_data['close'][i] > basic_upperband[i]:
-                    trendDirection = True
-                elif superTrend[i - 1] == basic_lowerband[i - 1] and self.ohlcv_data['close'][i] < basic_lowerband[i]:
-                    trendDirection = False
-                
-                # 更新最终上下轨
-                if trendDirection:
-                    superTrend[i] = basic_lowerband[i] if basic_lowerband[i] > superTrend[i - 1] else superTrend[i - 1]
-                else:
-                    superTrend[i] = basic_upperband[i] if basic_upperband[i] < superTrend[i - 1] else superTrend[i - 1]
+            doji = self.ohlcv_data['open'][i] == self.ohlcv_data['close'][i] == self.ohlcv_data['high'][i] == self.ohlcv_data['low'][i]
 
-        # 将超级趋势添加到指标数据中
-        self.indicators['SuperTrend'] = superTrend
+            if i == 0:
+                superTrend.append(longStop[i])
+                longStopPrev = longStop[i]
+                shortStopPrev = shortStop[i]
+            else:
+                # 考虑前一个点的长停和短停值
+                longStop[i] = longStop[i] if doji else max(longStop[i], longStopPrev) if lowPrice[i - 1] > longStopPrev else longStop[i]
+                shortStop[i] = shortStop[i] if doji else min(shortStop[i], shortStopPrev) if highPrice[i - 1] < shortStopPrev else shortStop[i]
+
+                # 更新趋势方向
+                if not trendDirection and self.ohlcv_data['close'][i] > shortStopPrev:
+                    trendDirection = True
+                elif trendDirection and self.ohlcv_data['close'][i] < longStopPrev:
+                    trendDirection = False
+
+                # 添加到 SuperTrend 列表
+                superTrend.append(longStop[i] if trendDirection else shortStop[i])
+
+                # 更新前一个点的值
+                longStopPrev = longStop[i]
+                shortStopPrev = shortStop[i]
+
+        self.indicators['SuperTrend'] = pd.Series(superTrend, index=self.ohlcv_data.index)
 
 
     def PVT(self, ema_length=21):

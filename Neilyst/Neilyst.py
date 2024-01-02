@@ -1,4 +1,4 @@
-from Strategy import Strategy
+from Neilyst.Strategy import Strategy
 
 class Neilyst(Strategy):
     def __init__(self, exchange_name) -> None:

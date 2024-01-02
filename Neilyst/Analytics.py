@@ -1,4 +1,4 @@
-from DataManager import Fetcher
+from Neilyst.Data import Fetcher
 import pandas as pd
 import mplfinance as mpf
 from scipy.stats import linregress
@@ -120,7 +120,35 @@ class Indicators(Fetcher):
         self.indicators['Bollinger_upper'] = upper_band
         self.indicators['Bollinger_middle'] = middle_band
         self.indicators['Bollinger_lower'] = lower_band
-    
+
+    def MACD(self, fast_length=12, slow_length=26, signal_length=9):
+        """
+        Calculate the Moving Average Convergence Divergence (MACD) indicator.
+
+        Parameters:
+        fast_length (int): The period for the fast EMA.
+        slow_length (int): The period for the slow EMA.
+        signal_length (int): The period for the signal line.
+        """
+        if self.ohlcv_data is None:
+            raise ValueError("OHLCV data not available for calculation!")
+
+        if self.indicators is None:
+            self.__set_index()
+
+        # 计算快速和慢速EMA
+        fast_ema = self.ohlcv_data['close'].ewm(span=fast_length, adjust=False).mean()
+        slow_ema = self.ohlcv_data['close'].ewm(span=slow_length, adjust=False).mean()
+
+        # 计算MACD线
+        self.indicators['MACD_line'] = fast_ema - slow_ema
+
+        # 计算信号线
+        self.indicators['Signal_line'] = self.indicators['MACD_line'].ewm(span=signal_length, adjust=False).mean()
+
+        # 计算MACD直方图
+        self.indicators['MACD_histogram'] = self.indicators['MACD_line'] - self.indicators['Signal_line']
+
     def RSI(self, period=14):
         """
         Calculate the Relative Strength Index (RSI).
@@ -151,7 +179,7 @@ class Indicators(Fetcher):
         rsi = 100 - (100 / (1 + rs))
 
         # 将RSI添加到指标数据中
-        self.indicators[f'RSI{period}'] = rsi.fillna(0)
+        self.indicators['RSI'] = rsi.fillna(0)
 
     def ATR(self, period=14) -> None:
         """

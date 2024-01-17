@@ -4,11 +4,23 @@ import pandas as pd
 from .utils.magic import PNL_THRESHOLD
 
 def load_history(path):
+    # 加载账单数据
     history = pd.read_csv(path)
     history['时间'] = pd.to_datetime(history['时间'])
     return history
 
 def calculate_win_rate(df, periods=None, symbol=None):
+    """
+      对外的计算胜率接口, 统计交易账单中的胜率
+    
+    Parameters
+    ------
+      periods: list
+        起止时间列表, list中每个元素都是一个tuple, 每个tuple中包括了起止时间
+        如果这个参数为None, 则计算全时间内的胜率
+      symbol: string
+        需要计算胜率的标的, 如果这个参数为None, 则计算全币种的胜率, 以及每种交易对的胜率
+    """
     df = _filter_close_order(df)
 
     if periods and symbol:

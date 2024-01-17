@@ -8,14 +8,13 @@ from .utils.folder import check_folder_exists, creat_folder, get_current_path
 
 def get_klines(symbol=None, start=None, end=None, timeframe='1h', retry_count=3, pause=0.001, exchange_name='binanceusdm', proxy='http://127.0.0.1:7890/'):
     '''
-      获取数据的对外接口, 在调用后, 应该先检查本地是否有相关的数据, 如果有想关数据, 则尝试拼接, 或者直接返回。如果没有相关数据, 再调用fetch。
+      获取数据的对外接口, 在调用后, 先检查本地是否有相关的数据, 如果有数据, 则返回。如果没有相关数据, 调用fetch
 
-      相关数据指的是同一交易对的同一时间周期, 且有部份时间重合的数据。
+      相关数据指的是同一交易对的同一时间周期, 且有部份时间重合的数据
 
-      保存数据的目录应该是data-交易对-时间周期, 的三级结构
+      保存数据的目录是data-交易对-时间周期的三级结构
       目录命名: data > exchange_name-symbol > timeframe > 每天一个文件. 文件名为 YYYY-MM-DD-HH:MM - YYYY-MM-DD-HH:MM
-
-      获取数据应该自动保存, 加载
+      获取数据后自动保存, 加载
 
     Paramaters
     ------

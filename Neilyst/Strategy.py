@@ -1,4 +1,4 @@
-from Neilyst.Analytics import Indicators
+from Neilyst.indicators import Indicators
 import matplotlib.pyplot as plt
 from matplotlib.dates import DateFormatter
 import pandas as pd

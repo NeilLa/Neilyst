@@ -165,7 +165,7 @@ def _check_local_data(path, start, end, timeframe):
     missing_data = []
     
     if not check_folder_exists(path):
-        return
+        os.makedirs(path)
 
     start = datetime.strptime(start, '%Y-%m-%dT%H:%M:%SZ')
     end = datetime.strptime(end, '%Y-%m-%dT%H:%M:%SZ')

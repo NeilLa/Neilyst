@@ -9,6 +9,17 @@ def load_history(path):
     history['时间'] = pd.to_datetime(history['时间'])
     return history
 
+def calculate_profit_loss_ratio(df, periods=None, symbol=None):
+    """
+      对外的盈亏比计算接口, 统计交易账单中的盈亏比
+    """
+    df = _filter_close_order(df)
+
+
+
+def calculate_trade_counts(df, periods=None, symbol=None):
+    pass
+
 def calculate_win_rate(df, periods=None, symbol=None):
     """
       对外的计算胜率接口, 统计交易账单中的胜率
@@ -27,23 +38,27 @@ def calculate_win_rate(df, periods=None, symbol=None):
         return _calculate_win_rate_over_periods(df, periods, symbol)
     
     elif periods:
-        symbol_win_rates = {}
-        symbols = df['产品名称'].unique()
-
-        overall_win_rate = _calculate_win_rate_over_periods(df, periods)
-
-        for sym in symbols:
-            sym_win_rate = _calculate_win_rate_over_periods(df, periods, sym)
-            symbol_win_rates[sym] = sym_win_rate
-        
-        symbol_win_rates['overall'] = overall_win_rate
-        return symbol_win_rates
+        return _calculate_win_rate_overall_symbols(df, periods)
     
     elif symbol:
         return _calculate_win_rate_over_periods(df, [(df['时间'].min(), df['时间'].max())], symbol)
     
     else:
         return _calculate_win_rate_over_periods(df, [(df['时间'].min(), df['时间'].max())])
+
+def _calculate_win_rate_overall_symbols(df, periods):
+    symbol_win_rate = {}
+    symbols = df['产品名称'].unique()
+
+    overall_win_rate = _calculate_win_rate_over_periods(df, periods)
+
+    for sym in symbols:
+        sym_win_rate = _calculate_win_rate_over_periods(df, periods, sym)
+        symbol_win_rate[sym] = sym_win_rate
+    
+    sym_win_rate['overall'] = overall_win_rate
+    
+    return sym_win_rate
 
 def _calculate_win_rate_over_periods(df, periods, symbol=None):
     totals_wins = 0
@@ -61,6 +76,9 @@ def _calculate_win_rate_over_periods(df, periods, symbol=None):
     overall_win_rate = totals_wins / totals_trades if totals_trades > 0 else 0
     return overall_win_rate
 
+def _calculate_profit_loss_ratio(df, periods, symbol=None):
+    pass
+
 def _filter_by_date(df, start, end):
     mask = (df['时间'] >= start) & (df['时间'] < end)
     return df.loc[mask]
@@ -70,5 +88,8 @@ def _filter_by_symbol(df, symbol):
     return df.loc[mask]
 
 def _filter_close_order(df):
+    # 过滤掉非平仓数据
+    # 账单中开仓的收益为小数点后八个零, 但不为0
+    # 所以需要这样过滤
     mask = abs(df['收益']) > PNL_THRESHOLD
     return df.loc[mask]

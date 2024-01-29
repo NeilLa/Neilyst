@@ -35,7 +35,6 @@ def get_klines(symbol=None, start=None, end=None, timeframe='1h', retry_count=3,
     '''
     exchange = init_ccxt_exchange(exchange_name, proxy)
 
-    # klines = _fetch_klines(symbol, start, end, timeframe, exchange)
     symbol_sp = symbol.split('/')
     current_path = get_current_path()
     data_path = f'{current_path}/data/{exchange_name}-{symbol_sp[0]}/{timeframe}'
@@ -58,6 +57,10 @@ def get_klines(symbol=None, start=None, end=None, timeframe='1h', retry_count=3,
                 time.sleep(pause)
     
     all_klines = _aggregate_data(data_path, start, end, timeframe)
+    
+    # drop timestamp column
+    all_klines = all_klines.drop(columns=['timestamp'])
+    
     return all_klines
 
 def _fetch_klines(symbol=None, start=None, end=None, timeframe='1h', exchange=None):
@@ -165,7 +168,7 @@ def _check_local_data(path, start, end, timeframe):
     missing_data = []
     
     if not check_folder_exists(path):
-        os.makedirs(path)
+        creat_folder(path)
 
     start = datetime.strptime(start, '%Y-%m-%dT%H:%M:%SZ')
     end = datetime.strptime(end, '%Y-%m-%dT%H:%M:%SZ')

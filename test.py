@@ -15,4 +15,4 @@ import pandas as pd
 
 # print(win_rate_symbol)
 
-test = Neilyst.backtest('BTC/USDT', '2023-01-10T00:00:00Z', '2023-01-14T00:00:00Z', 'aaa')
+test = Neilyst.backtest('BTC/USDT', '2023-01-11T00:00:00Z', '2023-01-15T00:00:00Z', 'aaa')

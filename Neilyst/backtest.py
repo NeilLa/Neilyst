@@ -9,6 +9,7 @@ def backtest(symbol, start, end, strategy):
 
     # strategy应该是一个对象
     # 初始金额，手续费，滑点模拟比率由构造函数初始化
+    # run方法将会返回一个对象或者是0
 
     # 回测引擎应该维护一个历史仓位账单，包括每次开平仓价格，确定盈亏，仓位数量，开仓方向
     # 还应该维护一个当前仓位，保存开仓价，方向，数量，浮盈等等
@@ -18,14 +19,34 @@ def backtest(symbol, start, end, strategy):
     # 另一种是同一个策略里包含多个币种，这样传入的symbol似乎是一个list
     # 可以考虑使用一个新的内部函数作为这种情况的驱动引擎
 
-    # 获取1min数据
-    ticker_data = get_klines(symbol, start, end, '1m')
-    print(ticker_data)
+    # 判断是单币种还是多币种策略
+    if isinstance(symbol, str):
+        _single_symbol_engine(symbol, start, end, strategy)
+    elif isinstance(symbol, list):
+        _muti_symbol_engine()
+
     return
 
-def single_symbol_engine():
-    pass
+def _single_symbol_engine(symbol, start, end, strategy):
+    # 获取1min数据
+    ticker_data = get_klines(symbol, start, end, '1m')
 
+    # 初始化仓位
+    current_pos = position()
+    pos_history = []
+
+    for index, row in ticker_data.iterrows():
+        
+        # 从策略函数获取策略信号
+        signal = strategy.run(index, row, current_pos)
+
+        if signal != 0:
+            pass
+
+    return pos_history
+
+def _muti_symbol_engine():
+    pass
 
 class strategy():
     def __init__(self, total_balance, trading_fee_ratio, slippage_ratio):
@@ -40,5 +61,17 @@ class strategy():
     # 对象应该包含开仓方向(long, short, close)
     # 还应该包含开仓价（这个价格自己根据传入的close计算），以及开仓量
     # 如果返回0，则不做任何操作
-    def run(self):
+    def run(self, date, price_row, current_pos):
+        pass
+
+class position():
+    def __init__(self):
+        self.open_price = 0
+        self.dir = None
+        self.price = 0
+        self.amount = 0
+        self.pnl = 0
+        self.float_profit = 0
+
+    def update_float_profit(self):
         pass

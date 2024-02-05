@@ -64,7 +64,7 @@ def _single_symbol_engine(symbol, start, end, strategy):
                 if close_amount > 0:
                     trade_cost = close_amount * signal.price * (trading_fee_ratio + slippage_ratio)
                     if current_pos == 'long':
-                        current_balance += close_amount * signal.price
+                        current_balance += close_amount * signal.price - trade_cost
                     elif current_pos == 'short':
                         current_balance += (current_pos.open_price - signal.price) * close_amount - trade_cost
                     

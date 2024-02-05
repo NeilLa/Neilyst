@@ -1,6 +1,7 @@
 # 本文件用于定义一些通用类
+from abc import ABC, abstractclassmethod
 
-class strategy():
+class strategy(ABC):
     def __init__(self, total_balance, trading_fee_ratio, slippage_ratio):
         self.total_balance = total_balance
         self.trading_fee_ratio = trading_fee_ratio
@@ -13,6 +14,7 @@ class strategy():
     # 对象应该包含开仓方向(long, short, close)
     # 还应该包含开仓价（这个价格自己根据传入的close计算），以及开仓量
     # 如果返回None，则不做任何操作
+    @abstractclassmethod
     def run(self, date, price_row, current_pos, current_balance):
         pass
 

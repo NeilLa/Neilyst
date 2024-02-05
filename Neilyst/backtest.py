@@ -23,7 +23,7 @@ def backtest(symbol, start, end, strategy):
 
     # 判断是单币种还是多币种策略
     if isinstance(symbol, str):
-        _single_symbol_engine(symbol, start, end, strategy)
+        result = _single_symbol_engine(symbol, start, end, strategy)
     elif isinstance(symbol, list):
         _muti_symbol_engine()
 
@@ -34,16 +34,58 @@ def _single_symbol_engine(symbol, start, end, strategy):
     ticker_data = get_klines(symbol, start, end, '1m')
 
     # 初始化仓位历史记录
-    current_pos = position()
+    current_pos = position(symbol)
     pos_history = []
+    
+    # 初始化策略参数
+    current_balance = strategy.total_balance
+    trading_fee_ratio = strategy.trading_fee_ratio
+    slippage_ratio = strategy.slippage_ratio
 
     for index, row in ticker_data.iterrows():
+        # 先根据当前价格更新仓位的浮动盈亏
+        current_pos.update_float_profit(row['close'])
         
         # 从策略函数获取策略信号
-        signal = strategy.run(index, row, current_pos)
+        signal = strategy.run(index, row, current_pos, current_balance)
 
-        if signal != None:
-            pass
+        if signal is not None:
+            # 初始化交易成本
+            trade_cost = 0 # 包括手续费和模拟滑点损耗
+            # 开仓逻辑
+            if signal.dir == 'long' or signal.dir == 'short':
+                # 计算交易成本
+                trade_cost = signal.amount * signal.price * (trading_fee_ratio + slippage_ratio)
+                # 执行开平仓操作
+                current_pos.open(signal.price, signal.amount, signal.dir, index)
+                current_balance -= trade_cost
+            elif signal.dir == 'close':
+                close_amount = min(signal.amount, current_pos.amount)
+                if close_amount > 0:
+                    trade_cost = close_amount * signal.price * (trading_fee_ratio + slippage_ratio)
+                    if current_pos == 'long':
+                        current_balance += close_amount * signal.price
+                    elif current_pos == 'short':
+                        current_balance += (current_pos.open_price - signal.price) * close_amount - trade_cost
+                    
+                    current_pos.close(signal.price, close_amount, index)
+
+                # 如果完全平仓，则视为本次交易结束
+                if current_pos.amount == 0:
+                    # 记录仓位
+                    pos_history.append({
+                        'open_date': current_pos.open_date,
+                        'close_date': current_pos.close_date,
+                        'dir': current_pos.dir,
+                        'open_price': current_pos.open_price,
+                        'close_price': current_pos.close_price,
+                        'amount': current_pos.pnl / abs(current_pos.open_price - current_pos.close_price),
+                        'pnl': current_pos.pnl,
+                        'balance': current_balance
+                    })
+
+                    # 重新初始化pos对象
+                    current_pos = position(symbol)
 
     return pos_history
 
@@ -62,17 +104,19 @@ class strategy():
     # 返回一个对象
     # 对象应该包含开仓方向(long, short, close)
     # 还应该包含开仓价（这个价格自己根据传入的close计算），以及开仓量
-    # 如果返回0，则不做任何操作
-    def run(self, date, price_row, current_pos):
-        # 初始化返回信号
-        signal = dict()
-        signal['dir'] = None
-        signal['price'] = 0
-        signal['amount'] = 0
+    # 如果返回None，则不做任何操作
+    def run(self, date, price_row, current_pos, current_balance):
         pass
 
+class signal():
+    def __init__(self, dir, price, amount):
+        self.dir = dir
+        self.price = price
+        self.amount = amount
+
 class position():
-    def __init__(self):
+    def __init__(self, symbol):
+        self.symbol = symbol
         self.open_price = 0 # 开仓价
         self.close_price = 0 # 平仓价
         self.dir = None # long/short/None
@@ -112,4 +156,19 @@ class position():
         self.open_date = current_date
 
     def close(self, current_price, amount, current_date):
-        pass
+        # 先检查是否有足够的仓位可供平仓
+        if amount > self.amount:
+            print("Error: Attempting to close more than the available position")
+            return
+        
+        # 计算确定盈亏
+        if self.dir == 'long':
+            self.pnl += (current_price - self.open_price) * amount
+        elif self.dir == 'short':
+            self.pnl += (self.open_price - current_price) * amount
+        
+        self.amount -= amount
+
+        # 如果当前仓位为0，则确认完全平仓
+        if self.amount == 0:
+            self.close_date = current_date

@@ -1,5 +1,5 @@
 from .data import get_klines
-from models import position
+from models import Position
 
 def backtest(symbol, start, end, strategy):
     ## 目前没有考虑双向持仓
@@ -23,10 +23,13 @@ def backtest(symbol, start, end, strategy):
     # 可以考虑使用一个新的内部函数作为这种情况的驱动引擎
 
     # 判断是单币种还是多币种策略
+
+    result = []
+
     if isinstance(symbol, str):
         result = _single_symbol_engine(symbol, start, end, strategy)
     elif isinstance(symbol, list):
-        _muti_symbol_engine()
+        _multi_symbol_engine()
 
     return
 
@@ -35,7 +38,7 @@ def _single_symbol_engine(symbol, start, end, strategy):
     ticker_data = get_klines(symbol, start, end, '1m')
 
     # 初始化仓位历史记录
-    current_pos = position(symbol)
+    current_pos = Position(symbol)
     pos_history = []
     
     # 初始化策略参数
@@ -86,10 +89,10 @@ def _single_symbol_engine(symbol, start, end, strategy):
                     })
 
                     # 重新初始化pos对象
-                    current_pos = position(symbol)
+                    current_pos = Position(symbol)
 
     return pos_history
 
-def _muti_symbol_engine():
+def _multi_symbol_engine():
     pass
 

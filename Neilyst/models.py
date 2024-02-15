@@ -1,7 +1,7 @@
 # 本文件用于定义一些通用类
 from abc import ABC, abstractclassmethod
 
-class strategy(ABC):
+class Strategy(ABC):
     def __init__(self, total_balance, trading_fee_ratio, slippage_ratio):
         self.total_balance = total_balance
         self.trading_fee_ratio = trading_fee_ratio
@@ -18,13 +18,13 @@ class strategy(ABC):
     def run(self, date, price_row, current_pos, current_balance):
         pass
 
-class signal():
+class Signal():
     def __init__(self, dir, price, amount):
         self.dir = dir
         self.price = price
         self.amount = amount
 
-class position():
+class Position():
     def __init__(self, symbol):
         self.symbol = symbol
         self.open_price = 0 # 开仓价

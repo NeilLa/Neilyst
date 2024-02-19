@@ -1,5 +1,5 @@
 from .data import get_klines
-from models import Position
+from .models import Position
 
 def backtest(symbol, start, end, strategy):
     ## 目前没有考虑双向持仓

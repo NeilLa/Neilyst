@@ -31,7 +31,7 @@ def backtest(symbol, start, end, strategy):
     elif isinstance(symbol, list):
         _multi_symbol_engine()
 
-    return
+    return result
 
 def _single_symbol_engine(symbol, start, end, strategy):
     # 获取1min数据

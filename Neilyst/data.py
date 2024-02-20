@@ -33,6 +33,7 @@ def get_klines(symbol=None, start=None, end=None, timeframe='1h', retry_count=3,
       exchange_name: string
         ccxt提的数据来源交易所关键字, 默认为币安期货
     '''
+
     exchange = init_ccxt_exchange(exchange_name, proxy)
 
     symbol_sp = symbol.split('/')
@@ -56,12 +57,50 @@ def get_klines(symbol=None, start=None, end=None, timeframe='1h', retry_count=3,
                 attempts += 1
                 time.sleep(pause)
     
-    all_klines = _aggregate_data(data_path, start, end, timeframe)
+    all_klines = _aggregate_data(data_path)
     
     # drop timestamp column
     all_klines = all_klines.drop(columns=['timestamp'])
     
     return all_klines
+
+def aggregate_custom_timeframe(symbol, start, end, custom_timeframe, exchange_name='binanceusdm', proxy='http://127.0.0.1:7890/'):
+    """
+    聚合自定义时间周期的K线数据。
+    
+    参数:
+    - symbol: 交易对名称，例如 'BTC/USDT'
+    - start: 开始日期，格式 'YYYY-MM-DDTHH:MM:SSZ'
+    - end: 结束日期，格式 'YYYY-MM-DDTHH:MM:SSZ'
+    - custom_timeframe: 自定义的时间周期，例如 '2h', '3h'
+    - exchange_name: 交易所名称，默认 'binanceusdm'
+    - proxy: 代理服务器地址，例如 'http://127.0.0.1:7890/'
+    """
+    # 确定1分钟数据的存储路径
+    timeframe = '1m'
+    current_path = get_current_path()
+    data_path = f'{current_path}/data/{exchange_name}-{symbol.replace("/", "_")}/{timeframe}'
+
+    # 检查并拉取缺失的1分钟数据
+    missing_periods = _check_local_data(data_path, start, end, timeframe)
+    if missing_periods:
+        format_missing_periods = _format_missing_data(missing_periods)
+        exchange = init_ccxt_exchange(exchange_name, proxy)
+        for period in format_missing_periods:
+            start_time, end_time = period
+            _fetch_klines(symbol, start_time, end_time, timeframe, exchange)
+
+    # 聚合数据为自定义时间周期
+    all_klines = _aggregate_data(data_path)
+    aggregated_klines = all_klines.resample(custom_timeframe).agg({
+        'open': 'first',
+        'high': 'max',
+        'low': 'min',
+        'close': 'last',
+        'volume': 'sum'
+    }).dropna()
+
+    return aggregated_klines
 
 def _fetch_klines(symbol=None, start=None, end=None, timeframe='1h', exchange=None):
     '''

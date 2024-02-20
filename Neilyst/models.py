@@ -1,11 +1,32 @@
 # 本文件用于定义一些通用类
 from abc import ABC, abstractclassmethod
+from pandas import Timestamp
+import pandas as pd
 
 class Strategy(ABC):
-    def __init__(self, total_balance, trading_fee_ratio, slippage_ratio):
+    def __init__(self, total_balance, trading_fee_ratio, slippage_ratio, data, indicators):
         self.total_balance = total_balance
         self.trading_fee_ratio = trading_fee_ratio
         self.slippage_ratio = slippage_ratio
+        self.data = data
+        self.indicators = indicators
+
+    def get_recent_data(self, date, periods):
+        # 根据引擎传入的date，找到最近的N条数据
+        if not isinstance(date, Timestamp):
+            date = Timestamp(date)
+        
+        # 找到数据中最近的一条数据的位置
+        recent_data_idx = self.data.index[self.data.index <= date][-periods:]
+        recent_indicators_idx = self.indicators.index[self.indicators.index <= date][-periods:]
+
+        recent_data = self.data.loc[recent_data_idx]
+        recent_indicators = self.indicators.loc[recent_indicators_idx]
+
+        # 合并
+        recent_combined = pd.concat([recent_data, recent_indicators], axis=1, join='inner')
+
+        return recent_combined
 
     # run方法每次接收一行1min级别数据用作驱动
     # 以及当前仓位信息, 应该包含开仓价，仓位多少，浮盈浮亏

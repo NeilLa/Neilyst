@@ -145,7 +145,7 @@ def _load_data(path):
     df = pd.read_csv(path, index_col='date', parse_dates=True)
     return df
 
-def _aggregate_data(path, start, end, timeframe):
+def _aggregate_data(path):
     all_files = os.listdir(path)
     df_list = []
 

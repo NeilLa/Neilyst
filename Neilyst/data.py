@@ -57,7 +57,7 @@ def get_klines(symbol=None, start=None, end=None, timeframe='1h', retry_count=3,
                 attempts += 1
                 time.sleep(pause)
     
-    all_klines = _aggregate_data(data_path)
+    all_klines = _aggregate_data(data_path, start, end)
     
     # drop timestamp column
     all_klines = all_klines.drop(columns=['timestamp'])
@@ -184,16 +184,21 @@ def _load_data(path):
     df = pd.read_csv(path, index_col='date', parse_dates=True)
     return df
 
-def _aggregate_data(path):
+def _aggregate_data(path, start, end):
+    # 目前只支持整天的聚合，要在日内做数据切割还需要更新
+    start = datetime.strptime(start, '%Y-%m-%dT%H:%M:%SZ')
+    end = datetime.strptime(end, '%Y-%m-%dT%H:%M:%SZ')
     all_files = os.listdir(path)
     df_list = []
 
     all_files.sort()
 
     for file in all_files:
-        file_path = os.path.join(path, file)
-        df = _load_data(file_path)
-        df_list.append(df)
+        file_start, file_end = _parse_time_range(file)
+        if file_start >= start and file_end <= end:
+            file_path = os.path.join(path, file)
+            df = _load_data(file_path)
+            df_list.append(df)
 
     all_df = pd.concat(df_list)
     all_df.sort_index(inplace=True)

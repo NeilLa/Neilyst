@@ -36,6 +36,7 @@ def backtest(symbol, start, end, strategy):
 def _single_symbol_engine(symbol, start, end, strategy):
     # 获取1min数据
     ticker_data = get_klines(symbol, start, end, '1m')
+    print(start, end)
 
     # 初始化仓位历史记录
     current_pos = Position(symbol)

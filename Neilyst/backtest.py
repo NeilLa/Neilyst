@@ -36,8 +36,6 @@ def backtest(symbol, start, end, strategy):
 def _single_symbol_engine(symbol, start, end, strategy):
     # 获取1min数据
     ticker_data = get_klines(symbol, start, end, '1m')
-    print(start, end)
-
     # 初始化仓位历史记录
     current_pos = Position(symbol)
     pos_history = []
@@ -63,14 +61,14 @@ def _single_symbol_engine(symbol, start, end, strategy):
                 trade_cost = signal.amount * signal.price * (trading_fee_ratio + slippage_ratio)
                 # 执行开平仓操作
                 current_pos.open(signal.price, signal.amount, signal.dir, index)
-                current_balance -= trade_cost
+                current_balance -= signal.amount * signal.price + trade_cost
             elif signal.dir == 'close':
                 close_amount = min(signal.amount, current_pos.amount)
                 if close_amount > 0:
                     trade_cost = close_amount * signal.price * (trading_fee_ratio + slippage_ratio)
-                    if current_pos == 'long':
+                    if current_pos.dir == 'long':
                         current_balance += close_amount * signal.price - trade_cost
-                    elif current_pos == 'short':
+                    elif current_pos.dir == 'short':
                         current_balance += (current_pos.open_price - signal.price) * close_amount - trade_cost
                     
                     current_pos.close(signal.price, close_amount, index)

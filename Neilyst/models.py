@@ -103,3 +103,4 @@ class Position():
         # 如果当前仓位为0，则确认完全平仓
         if self.amount == 0:
             self.close_date = current_date
+            self.close_price = current_price

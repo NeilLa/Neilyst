@@ -39,4 +39,4 @@ class MovingAverageStrategy(Neilyst.Strategy):
 
 strategy = MovingAverageStrategy(50000, 0, 0, data, indicators)
 result = Neilyst.backtest('BTC/USDT', '2023-01-01T00:00:00Z', '2023-01-03T00:00:00Z', strategy)
-print(result)
+evaluation = Neilyst.evaluate_strategy(result)

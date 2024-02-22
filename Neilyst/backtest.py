@@ -61,7 +61,10 @@ def _single_symbol_engine(symbol, start, end, strategy):
                 trade_cost = signal.amount * signal.price * (trading_fee_ratio + slippage_ratio)
                 # 执行开平仓操作
                 current_pos.open(signal.price, signal.amount, signal.dir, index)
-                current_balance -= signal.amount * signal.price + trade_cost
+                if signal.dir == 'long':
+                    current_balance -= signal.amount * signal.price + trade_cost
+                elif signal.dir == 'short':
+                    current_balance += signal.amount * signal.price + trade_cost
             elif signal.dir == 'close':
                 close_amount = min(signal.amount, current_pos.amount)
                 if close_amount > 0:
@@ -69,8 +72,7 @@ def _single_symbol_engine(symbol, start, end, strategy):
                     if current_pos.dir == 'long':
                         current_balance += close_amount * signal.price - trade_cost
                     elif current_pos.dir == 'short':
-                        current_balance += (current_pos.open_price - signal.price) * close_amount - trade_cost
-                    
+                        current_balance -= signal.price * close_amount - trade_cost
                     current_pos.close(signal.price, close_amount, index)
 
                 # 如果完全平仓，则视为本次交易结束
@@ -82,7 +84,7 @@ def _single_symbol_engine(symbol, start, end, strategy):
                         'dir': current_pos.dir,
                         'open_price': current_pos.open_price,
                         'close_price': current_pos.close_price,
-                        'amount': current_pos.pnl / abs(current_pos.open_price - current_pos.close_price),
+                        'amount': abs(current_pos.pnl / (current_pos.open_price - current_pos.close_price)),
                         'pnl': current_pos.pnl,
                         'balance': current_balance
                     })

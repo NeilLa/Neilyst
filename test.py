@@ -21,7 +21,7 @@ class MovingAverageStrategy(Neilyst.Strategy):
             if short_mavg > long_mavg and (prev_short_mavg < prev_long_mavg):
                 if current_pos.amount == 0:
                     print('open, ' + str(date))
-                    signal = Neilyst.Signal('long', price_row['close'], 1)
+                    signal = Neilyst.Signal('short', price_row['close'], 1)
                 else:
                     signal = None
             elif short_mavg < long_mavg and (prev_short_mavg > prev_long_mavg):
@@ -38,5 +38,5 @@ class MovingAverageStrategy(Neilyst.Strategy):
         return signal
 
 strategy = MovingAverageStrategy(50000, 0, 0, data, indicators)
-result = Neilyst.backtest('BTC/USDT', '2023-01-01T00:00:00Z', '2023-01-02T00:00:00Z', strategy)
+result = Neilyst.backtest('BTC/USDT', '2023-01-01T00:00:00Z', '2023-01-03T00:00:00Z', strategy)
 print(result)

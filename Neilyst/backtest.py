@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 from .data import get_klines
 from .models import Position
-from .utils.magic import US_TREASURY_YIELD
+from .utils.magic import US_TREASURY_YIELD, DAYS_IN_ONE_YEAR, TRADING_DAYS_IN_ONE_YEAR
 
 def backtest(symbol, start, end, strategy):
     ## 目前没有考虑双向持仓
@@ -100,9 +100,8 @@ def _single_symbol_engine(symbol, start, end, strategy):
 def _multi_symbol_engine():
     pass
 
-def evaluate_strategy(result, risk_free_rate=US_TREASURY_YIELD):
+def evaluate_strategy(result, init_balance, risk_free_rate=US_TREASURY_YIELD):
     df = pd.DataFrame(result)
-    print(df)
 
     # 总盈亏
     total_pnl = df['pnl'].sum()
@@ -123,24 +122,31 @@ def evaluate_strategy(result, risk_free_rate=US_TREASURY_YIELD):
     drawdown = cumulative_max - cumulative_pnl
     max_drawdown = drawdown.max()
     
+    # 年化收益
+    start_date = df['open_date'].iloc[0]
+    end_date = df['close_date'].iloc[-1]
+    days = (end_date - start_date).days
+    years = days / DAYS_IN_ONE_YEAR
+    final_balance = init_balance + total_pnl
+    annual_return = (((final_balance / init_balance) / years) - 1) if years != 0 else 0
+
     # 夏普比率
-    # 暂定为日频数据，后面还需更精确的细化
-    sharpe_ratio = 0
-    risk_free_rate_period = risk_free_rate / 252
-    excess_return = df['pnl'] - risk_free_rate_period
-    if excess_return.std() != 0:
-        sharpe_ratio = (excess_return.mean() / excess_return.std()) * np.sqrt(252)
+    daliy_returns = df['pnl'] / init_balance
+    excess_daily_returns = daliy_returns - (risk_free_rate / DAYS_IN_ONE_YEAR)
+    sharpe_ratio = (excess_daily_returns.mean() / excess_daily_returns.std()) * np.sqrt(TRADING_DAYS_IN_ONE_YEAR) if excess_daily_returns.std() != 0 else 0
     
     print(f'总收益: {total_pnl}')
     print(f'总胜率: {win_rate}')
     print(f'盈亏比: {profit_loss_ratio}')
     print(f'最大回撤: {max_drawdown}')
+    print(f'年化收益率: {annual_return * 100}%')
     print(f'夏普比率: {sharpe_ratio}')
-    
+
     return {
         'total_pnl': total_pnl,
         'win_rate': win_rate,
         'profit_loss_ratio': profit_loss_ratio,
         'max_drawdown': max_drawdown,
+        'annual_return': annual_return,
         'sharpe_ratio': sharpe_ratio
     }

@@ -11,17 +11,23 @@ class Strategy(ABC):
         self.data = data
         self.indicators = indicators
 
-    def get_recent_data(self, date, periods):
+    def get_recent_data(self, date, periods, data=None, indicators=None):
         # 根据引擎传入的date，找到最近的N条数据
         if not isinstance(date, Timestamp):
             date = Timestamp(date)
         
+        if not data and not indicators:
+            data = self.data
+            indicators = self.indicators
+        else:
+            data = data
+            indicators = indicators
         # 找到数据中最近的一条数据的位置
-        recent_data_idx = self.data.index[self.data.index <= date][-periods:]
-        recent_indicators_idx = self.indicators.index[self.indicators.index <= date][-periods:]
+        recent_data_idx = data.index[data.index <= date][-periods:]
+        recent_indicators_idx = indicators.index[indicators.index <= date][-periods:]
 
-        recent_data = self.data.loc[recent_data_idx]
-        recent_indicators = self.indicators.loc[recent_indicators_idx]
+        recent_data = data.loc[recent_data_idx]
+        recent_indicators = indicators.loc[recent_indicators_idx]
 
         # 合并
         recent_combined = pd.concat([recent_data, recent_indicators], axis=1, join='inner')

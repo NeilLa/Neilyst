@@ -4,7 +4,7 @@ from pandas import Timestamp
 import pandas as pd
 
 class Strategy(ABC):
-    def __init__(self, total_balance, trading_fee_ratio, slippage_ratio, data, indicators):
+    def __init__(self, total_balance, trading_fee_ratio, slippage_ratio, data=None, indicators=None):
         self.total_balance = total_balance
         self.trading_fee_ratio = trading_fee_ratio
         self.slippage_ratio = slippage_ratio

@@ -1,42 +1,70 @@
 import Neilyst
 
-data = Neilyst.get_klines('BTC/USDT', '2023-01-01T00:00:00Z', '2023-01-03T00:00:00Z', timeframe='1h')
+data_1h = Neilyst.get_klines('BTC/USDT', '2023-01-01T00:00:00Z', '2023-12-30T00:00:00Z', timeframe='1h')
+data_30m = Neilyst.get_klines('BTC/USDT', '2023-01-01T00:00:00Z', '2023-12-30T00:00:00Z', timeframe='30m')
+data_15m = Neilyst.get_klines('BTC/USDT', '2023-01-01T00:00:00Z', '2023-12-30T00:00:00Z', timeframe='15m')
+data_5m = Neilyst.get_klines('BTC/USDT', '2023-01-01T00:00:00Z', '2023-12-30T00:00:00Z', timeframe='5m')
+data_1m = Neilyst.get_klines('BTC/USDT', '2023-01-01T00:00:00Z', '2023-12-30T00:00:00Z', timeframe='1m')
 
-indicators = Neilyst.get_indicators(data, 'rsi', 'sma5', 'sma10')
-class MovingAverageStrategy(Neilyst.Strategy):
-    def __init__(self, total_balance, trading_fee_ratio, slippage_ratio, data, indicators):
+# 计算指标
+
+indicators_1h = Neilyst.get_indicators(data_1h, 'rsi', 'sma20', 'ema9')
+indicators_30m = Neilyst.get_indicators(data_30m, 'rsi', 'sma20', 'ema9')
+indicators_15m = Neilyst.get_indicators(data_15m, 'rsi', 'sma20', 'ema9')
+indicators_5m= Neilyst.get_indicators(data_5m, 'rsi', 'sma20', 'ema9')
+indicators_1m= Neilyst.get_indicators(data_1m, 'rsi', 'sma20', 'ema9')
+class MultiSignalStrategy(Neilyst.Strategy):
+    def __init__(self, total_balance, trading_fee_ratio, slippage_ratio, data=None, indicators=None):
         super().__init__(total_balance, trading_fee_ratio, slippage_ratio, data, indicators)
-        self.short_window = 20
-        self.long_window = 60
-
+        self.take_profit_ratio = 0.2 #止盈比例
+        self.stop_loss_ratio = -0.1 #止损比例
+    
     def run(self, date, price_row, current_pos, current_balance):
-        recent_data = self.get_recent_data(date, 2)
-        if len(recent_data) >= 2:
-            short_mavg = recent_data.iloc[0]['sma5']
-            long_mavg = recent_data.iloc[0]['sma10']
-
-            prev_short_mavg = recent_data.iloc[-1]['sma5']
-            prev_long_mavg = recent_data.iloc[-1]['sma10']
-
-            if short_mavg > long_mavg and (prev_short_mavg < prev_long_mavg):
-                if current_pos.amount == 0:
-                    print('open, ' + str(date))
-                    signal = Neilyst.Signal('short', price_row['close'], 1)
-                else:
-                    signal = None
-            elif short_mavg < long_mavg and (prev_short_mavg > prev_long_mavg):
-                if current_pos.amount > 0:
-                    print('close, ' + str(date))
-                    signal = Neilyst.Signal('close', price_row['close'], current_pos.amount)
-                else:
-                    signal = None
-            else:
-                signal = None
-        else:
-            signal = None
+        recent_data_15m = self.get_recent_data(date, 2, data_15m, indicators_15m)
+        signal = None
         
-        return signal
+        if len(recent_data_15m) >= 2:
+            ema_15 = indicators_15m.iloc[0]['ema9']
+            ma_15 = indicators_15m.iloc[0]['sma20']
 
-strategy = MovingAverageStrategy(50000, 0, 0, data, indicators)
-result = Neilyst.backtest('BTC/USDT', '2023-01-01T00:00:00Z', '2023-01-03T00:00:00Z', strategy)
+            prev_ema_15 = indicators_15m.iloc[-1]['ema9']
+            prev_ma_15 = indicators_15m.iloc[-1]['sma20']
+
+            if current_pos.amount > 0:
+                # 此时有仓位，考虑平仓过程
+                # 固定止盈止损、或者布林带止盈，ma止损
+                open_total_price = current_pos.open_price * current_pos.amount
+                if (current_pos.float_profit / open_total_price) >= self.take_profit_ratio:
+                    #止盈
+                    signal = Neilyst.Signal('close', price_row['close'], current_pos.amount)
+                elif (current_pos.float_profit / open_total_price) <= self.stop_loss_ratio:
+                    #止损
+                    signal = Neilyst.Signal('close', price_row['close'], current_pos.amount)
+
+            else:
+                # 没有仓位，考虑开仓信号
+                # 加权信号处理
+                index = 0
+                if (ema_15 > ma_15) and (prev_ema_15 < prev_ma_15):
+                    # 多信号
+                    index = 1
+                if (ema_15 < ma_15) and (prev_ema_15 > prev_ma_15):
+                    index = -1
+
+                # 根据信号计算仓位
+                pos = abs(current_balance / price_row['close'] * index)
+
+                # 开仓
+                if index > 0:
+                    signal = Neilyst.Signal('long', price_row['close'], pos)
+                elif index < 0:
+                    signal = Neilyst.Signal('short', price_row['close'], pos)
+
+        return signal
+    
+    # 仓位管理，考虑写入框架的策略：网格
+    def pos_management(self):
+        pass
+strategy = MultiSignalStrategy(50000, 0, 0, None, None)
+result = Neilyst.backtest('BTC/USDT', '2023-01-01T00:00:00Z', '2023-06-03T00:00:00Z', strategy)
 evaluation = Neilyst.evaluate_strategy(result)

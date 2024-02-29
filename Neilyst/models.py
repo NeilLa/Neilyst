@@ -16,7 +16,7 @@ class Strategy(ABC):
         if not isinstance(date, Timestamp):
             date = Timestamp(date)
         
-        if not data and not indicators:
+        if (data is None or data.empty) and (indicators is None or indicators.empty):
             data = self.data
             indicators = self.indicators
         else:

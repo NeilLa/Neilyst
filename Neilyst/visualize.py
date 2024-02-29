@@ -18,14 +18,35 @@ def show_pnl(data, indicators, result, init_balance):
     ax1.plot(df.index, df['close'], color=color, label='Price')
     ax1.tick_params(axis='y', labelcolor=color)
 
+    # 已添加图例的标记
+    legend_added = {"long_open": False, "long_close": False, "short_open": False, "short_close": False}
+
     # 开平仓标记
     for _, row in df_result.iterrows():
         if row['dir'] == 'long':
-            ax1.plot(row['open_date'], row['open_price'], '^', markersize=10, color='green', label='Long Open')
-            ax1.plot(row['close_date'], row['close_price'], 'v', markersize=10, color='red', label='Long Close')
+            if not legend_added["long_open"]:
+                ax1.plot(row['open_date'], row['open_price'], '^', markersize=10, color='green', label='Long Open')
+                legend_added["long_open"] = True
+            else:
+                ax1.plot(row['open_date'], row['open_price'], '^', markersize=10, color='green', label="_nolegend_")
+
+            if not legend_added["long_close"]:
+                ax1.plot(row['close_date'], row['close_price'], 'v', markersize=10, color='red', label='Long Close')
+                legend_added["long_close"] = True
+            else:
+                ax1.plot(row['close_date'], row['close_price'], 'v', markersize=10, color='red', label="_nolegend_")
         elif row['dir'] == 'short':
-            ax1.plot(row['open_date'], row['open_price'], '^', markersize=10, color='red', label='Short Open')
-            ax1.plot(row['close_date'], row['close_price'], 'v', markersize=10, color='green', label='Short Close')
+            if not legend_added["short_open"]:
+                ax1.plot(row['open_date'], row['open_price'], '^', markersize=10, color='red', label='Short Open')
+                legend_added["short_open"] = True
+            else:
+                ax1.plot(row['open_date'], row['open_price'], '^', markersize=10, color='red', label="_nolegend_")
+
+            if not legend_added["short_close"]:
+                ax1.plot(row['close_date'], row['close_price'], 'v', markersize=10, color='green', label='Short Close')
+                legend_added["short_close"] = True
+            else:
+                ax1.plot(row['close_date'], row['close_price'], 'v', markersize=10, color='green', label="_nolegend_")
 
     # 画余额变化曲线
     ax2 = ax1.twinx()
@@ -39,7 +60,7 @@ def show_pnl(data, indicators, result, init_balance):
         ax1.plot(df.index, indicator_values, label=indicator_name)
     
     # 图例
+    ax1.legend()
     fig.tight_layout()
-    fig.legend(loc="upper left", bbox_to_anchor=(0.05,0.95))
     
     plt.show()

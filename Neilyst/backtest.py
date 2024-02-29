@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+from tqdm import tqdm
 from .data import get_klines
 from .models import Position
 from .utils.magic import US_TREASURY_YIELD, DAYS_IN_ONE_YEAR, TRADING_DAYS_IN_ONE_YEAR
@@ -48,7 +49,7 @@ def _single_symbol_engine(symbol, start, end, strategy):
     trading_fee_ratio = strategy.trading_fee_ratio
     slippage_ratio = strategy.slippage_ratio
 
-    for index, row in ticker_data.iterrows():
+    for index, row in tqdm(ticker_data.iterrows(), total=ticker_data.shape[0]):
         # 先根据当前价格更新仓位的浮动盈亏
         current_pos.update_float_profit(row['close'])
         

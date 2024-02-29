@@ -9,21 +9,21 @@ def show_pnl(data, indicators, result, init_balance):
     df_result['cumulative_pnl'] = df_result['pnl'].cumsum() + init_balance
 
     # 设置图像属性
-    fig, ax1 = plt.subplot(figsize=(15, 8))
+    fig, ax1 = plt.subplots(figsize=(15, 8))
 
     # 价格曲线
     color = 'tab:blue'
     ax1.set_xlabel('Time')
     ax1.set_ylabel('Price', color=color)
-    ax1.plot(df['date'], df['close'], color=color, label='Price')
+    ax1.plot(df.index, df['close'], color=color, label='Price')
     ax1.tick_params(axis='y', labelcolor=color)
 
     # 开平仓标记
     for _, row in df_result.iterrows():
-        if row['position'] == 'long':
+        if row['dir'] == 'long':
             ax1.plot(row['open_date'], row['open_price'], '^', markersize=10, color='green', label='Long Open')
             ax1.plot(row['close_date'], row['close_price'], 'v', markersize=10, color='red', label='Long Close')
-        elif row['position'] == 'short':
+        elif row['dir'] == 'short':
             ax1.plot(row['open_date'], row['open_price'], '^', markersize=10, color='red', label='Short Open')
             ax1.plot(row['close_date'], row['close_price'], 'v', markersize=10, color='green', label='Short Close')
 
@@ -36,7 +36,7 @@ def show_pnl(data, indicators, result, init_balance):
     
     # 画指标曲线
     for indicator_name, indicator_values in indicators.items():
-        ax1.plot(df['date'], indicator_values, label=indicator_name)
+        ax1.plot(df.index, indicator_values, label=indicator_name)
     
     # 图例
     fig.tight_layout()

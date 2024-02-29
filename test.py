@@ -65,6 +65,8 @@ class MultiSignalStrategy(Neilyst.Strategy):
     # 仓位管理，考虑写入框架的策略：网格
     def pos_management(self):
         pass
-strategy = MultiSignalStrategy(50000, 0, 0, None, None)
-result = Neilyst.backtest('BTC/USDT', '2023-01-01T00:00:00Z', '2023-06-03T00:00:00Z', strategy)
-evaluation = Neilyst.evaluate_strategy(result)
+init_balance = 50000
+strategy = MultiSignalStrategy(init_balance, 0, 0, None, None)
+result = Neilyst.backtest('BTC/USDT', '2023-01-01T00:00:00Z', '2023-12-30T00:00:00Z', strategy)
+evaluation = Neilyst.evaluate_strategy(result, init_balance)
+Neilyst.show_pnl(data_15m, indicators_15m, result, init_balance)

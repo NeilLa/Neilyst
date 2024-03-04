@@ -96,6 +96,30 @@ def _single_symbol_engine(symbol, start, end, strategy):
                     # 重新初始化pos对象
                     current_pos = Position(symbol)
 
+    # 整体回测结束，平掉所有仓位
+    if current_pos.amount > 0:
+        final_price = ticker_data.iloc[-1]['close']
+        current_pos.close(final_price, current_pos.amount, ticker_data.index)
+        trade_cost = current_pos.amount * final_price * (trading_fee_ratio + slippage_ratio)
+
+        # 计算最终余额
+        if current_pos.dir == 'long':
+            current_balance += current_pos.amount * final_price - trade_cost
+        elif current_pos.dir == 'short':
+            current_balance -= (current_pos.open_price - final_price) * current_pos.amount
+        
+        # 记录最后仓位
+        pos_history.append({
+            'open_date': current_pos.open_date,
+            'close_date': current_pos.close_date,
+            'dir': current_pos.dir,
+            'open_price': current_pos.open_price,
+            'close_price': current_pos.close_price,
+            'amount': abs(current_pos.pnl / (current_pos.open_price - current_pos.close_price)),
+            'pnl': current_pos.pnl,
+            'balance': current_balance  
+        })
+        
     return pos_history
 
 def _multi_symbol_engine():

@@ -99,7 +99,7 @@ def _single_symbol_engine(symbol, start, end, strategy):
     # 整体回测结束，平掉所有仓位
     if current_pos.amount > 0:
         final_price = ticker_data.iloc[-1]['close']
-        current_pos.close(final_price, current_pos.amount, ticker_data.index)
+        current_pos.close(final_price, current_pos.amount, ticker_data.index[-1])
         trade_cost = current_pos.amount * final_price * (trading_fee_ratio + slippage_ratio)
 
         # 计算最终余额

@@ -1,18 +1,23 @@
 import Neilyst
 
-data_1h = Neilyst.get_klines('BTC/USDT', '2023-01-01T00:00:00Z', '2023-12-30T00:00:00Z', timeframe='1h')
-data_30m = Neilyst.get_klines('BTC/USDT', '2023-01-01T00:00:00Z', '2023-12-30T00:00:00Z', timeframe='30m')
-data_15m = Neilyst.get_klines('BTC/USDT', '2023-01-01T00:00:00Z', '2023-12-30T00:00:00Z', timeframe='15m')
-data_5m = Neilyst.get_klines('BTC/USDT', '2023-01-01T00:00:00Z', '2023-12-30T00:00:00Z', timeframe='5m')
-data_1m = Neilyst.get_klines('BTC/USDT', '2023-01-01T00:00:00Z', '2023-12-30T00:00:00Z', timeframe='1m')
+# 回测时间为2023年一年
+start_time = '2023-01-01T00:00:00Z'
+end_time = '2023-01-02T00:00:00Z'
+
+# 获取数据
+data_1h = Neilyst.get_klines('BTC/USDT', start_time, end_time, timeframe='1h')
+data_30m = Neilyst.get_klines('BTC/USDT', start_time, end_time, timeframe='30m')
+data_15m = Neilyst.get_klines('BTC/USDT', start_time, end_time, timeframe='15m')
+data_5m = Neilyst.get_klines('BTC/USDT', start_time, end_time, timeframe='5m')
+data_1m = Neilyst.get_klines('BTC/USDT', start_time, end_time, timeframe='1m')
 
 # 计算指标
 
-indicators_1h = Neilyst.get_indicators(data_1h, 'rsi', 'sma20', 'ema9')
-indicators_30m = Neilyst.get_indicators(data_30m, 'rsi', 'sma20', 'ema9')
-indicators_15m = Neilyst.get_indicators(data_15m, 'rsi', 'sma20', 'ema9')
-indicators_5m= Neilyst.get_indicators(data_5m, 'rsi', 'sma20', 'ema9')
-indicators_1m= Neilyst.get_indicators(data_1m, 'rsi', 'sma20', 'ema9')
+indicators_1h = Neilyst.get_indicators(data_1h, 'sma20', 'ema9')
+indicators_30m = Neilyst.get_indicators(data_30m, 'sma20', 'ema9')
+indicators_15m = Neilyst.get_indicators(data_15m, 'sma20', 'ema9')
+indicators_5m= Neilyst.get_indicators(data_5m, 'sma20', 'ema9')
+indicators_1m= Neilyst.get_indicators(data_1m, 'sma20', 'ema9')
 class MultiSignalStrategy(Neilyst.Strategy):
     def __init__(self, total_balance, trading_fee_ratio, slippage_ratio, data=None, indicators=None):
         super().__init__(total_balance, trading_fee_ratio, slippage_ratio, data, indicators)
@@ -67,6 +72,6 @@ class MultiSignalStrategy(Neilyst.Strategy):
         pass
 init_balance = 50000
 strategy = MultiSignalStrategy(init_balance, 0, 0, None, None)
-result = Neilyst.backtest('BTC/USDT', '2023-01-01T00:00:00Z', '2023-12-30T00:00:00Z', strategy)
+result = Neilyst.backtest('BTC/USDT', start_time, end_time, strategy)
 evaluation = Neilyst.evaluate_strategy(result, init_balance)
 Neilyst.show_pnl(data_15m, indicators_15m, result, init_balance)

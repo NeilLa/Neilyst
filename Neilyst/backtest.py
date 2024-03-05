@@ -128,6 +128,10 @@ def _multi_symbol_engine():
 def evaluate_strategy(result, init_balance, risk_free_rate=US_TREASURY_YIELD):
     df = pd.DataFrame(result)
 
+    if df.empty:
+        print('No trading result')
+        return
+    
     # 总盈亏
     total_pnl = df['pnl'].sum()
 

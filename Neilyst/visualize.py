@@ -5,6 +5,9 @@ def show_pnl(data, indicators, result, init_balance):
     df = pd.DataFrame(data)
     df_result = pd.DataFrame(result)
 
+    if df_result.empty:
+        return
+
     # 计算余额变化
     df_result['cumulative_pnl'] = df_result['pnl'].cumsum() + init_balance
 

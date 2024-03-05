@@ -75,3 +75,5 @@ strategy = MultiSignalStrategy(init_balance, 0, 0, None, None)
 result = Neilyst.backtest('BTC/USDT', start_time, end_time, strategy)
 evaluation = Neilyst.evaluate_strategy(result, init_balance)
 Neilyst.show_pnl(data_15m, indicators_15m, result, init_balance)
+
+Neilyst.show_indicators(data_15m, indicators_15m)

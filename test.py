@@ -1,4 +1,5 @@
 import Neilyst
+import numpy as np
 
 # 回测时间为2023年一年
 start_time = '2023-01-01T00:00:00Z'
@@ -18,26 +19,31 @@ indicators_30m = Neilyst.get_indicators(data_30m, 'sma20', 'ema9')
 indicators_15m = Neilyst.get_indicators(data_15m, 'sma20', 'ema9')
 indicators_5m= Neilyst.get_indicators(data_5m, 'sma20', 'ema9')
 indicators_1m= Neilyst.get_indicators(data_1m, 'sma20', 'ema9')
+
+indicators_15m.to_csv('indicators_15m.csv')
+
 class MultiSignalStrategy(Neilyst.Strategy):
     def __init__(self, total_balance, trading_fee_ratio, slippage_ratio, data=None, indicators=None):
         super().__init__(total_balance, trading_fee_ratio, slippage_ratio, data, indicators)
         self.take_profit_ratio = 0.2 #止盈比例
         self.stop_loss_ratio = -0.1 #止损比例
-    
     def run(self, date, price_row, current_pos, current_balance):
         recent_data_15m = self.get_recent_data(date, 2, data_15m, indicators_15m)
         signal = None
         
         if len(recent_data_15m) >= 2:
-            ema_15 = indicators_15m.iloc[0]['ema9']
-            ma_15 = indicators_15m.iloc[0]['sma20']
+            print(recent_data_15m)
+            ema_15 = recent_data_15m.iloc[-1]['ema9']
+            ma_15 = recent_data_15m.iloc[-1]['sma20']
 
-            prev_ema_15 = indicators_15m.iloc[-1]['ema9']
-            prev_ma_15 = indicators_15m.iloc[-1]['sma20']
+            prev_ema_15 = recent_data_15m.iloc[0]['ema9']
+            prev_ma_15 = recent_data_15m.iloc[0]['sma20']
 
             if current_pos.amount > 0:
                 # 此时有仓位，考虑平仓过程
                 # 固定止盈止损、或者布林带止盈，ma止损
+
+                # 查看信号是否消失
                 open_total_price = current_pos.open_price * current_pos.amount
                 if (current_pos.float_profit / open_total_price) >= self.take_profit_ratio:
                     #止盈
@@ -50,10 +56,10 @@ class MultiSignalStrategy(Neilyst.Strategy):
                 # 没有仓位，考虑开仓信号
                 # 加权信号处理
                 index = 0
-                if (ema_15 > ma_15) and (prev_ema_15 < prev_ma_15):
+                if (ema_15 > ma_15) and (prev_ema_15 <= prev_ma_15):
                     # 多信号
                     index = 1
-                if (ema_15 < ma_15) and (prev_ema_15 > prev_ma_15):
+                if (ema_15 < ma_15) and (prev_ema_15 >= prev_ma_15):
                     index = -1
 
                 # 根据信号计算仓位
@@ -75,5 +81,3 @@ strategy = MultiSignalStrategy(init_balance, 0, 0, None, None)
 result = Neilyst.backtest('BTC/USDT', start_time, end_time, strategy)
 evaluation = Neilyst.evaluate_strategy(result, init_balance)
 Neilyst.show_pnl(data_15m, indicators_15m, result, init_balance)
-
-Neilyst.show_indicators(data_15m, indicators_15m)

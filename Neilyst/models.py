@@ -28,7 +28,7 @@ class Strategy(ABC):
 
         recent_data = data.loc[recent_data_idx]
         recent_indicators = indicators.loc[recent_indicators_idx]
-
+        
         # 合并
         recent_combined = pd.concat([recent_data, recent_indicators], axis=1, join='inner')
 

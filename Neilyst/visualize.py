@@ -100,7 +100,8 @@ def show_indicators(data, indicators):
     axes[0,0].legend(loc='upper left')  # 修改为axes[0,0]
     
     # 允许用户放大缩小图表来观察细节
-    plt.get_current_fig_manager().toolbar.zoom()
+    # 在jupter notebook中会有bug
+    # plt.get_current_fig_manager().toolbar.zoom()
 
     # 显示图表
     plt.show()

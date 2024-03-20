@@ -61,7 +61,8 @@ def show_pnl(data, indicators, result, init_balance):
     
     # 画指标曲线
     for indicator_name, indicator_values in indicators.items():
-        ax1.plot(df.index, indicator_values, label=indicator_name)
+        if indicator_name not in ['rsi', 'volumn', 'macd']:
+            ax1.plot(df.index, indicator_values, label=indicator_name)
     
     # 图例
     ax1.legend()

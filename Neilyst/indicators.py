@@ -22,6 +22,7 @@ def get_indicators(data, *args):
             result = func(data['close'], length=length) if length is not None else func(data['close'])
             indicators_df[col_name] = result
             indicators_df[col_name] = indicators_df[col_name].fillna(method='bfill')
+            indicators_df['close'] = data['close']
         else:
             print(f'Indicator {name} not found in pandas_ta.')
 

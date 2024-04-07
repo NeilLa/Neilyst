@@ -1,9 +1,10 @@
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
+import datetime
 from .data import get_klines
 from .models import Position
-from .utils.magic import US_TREASURY_YIELD, DAYS_IN_ONE_YEAR, TRADING_DAYS_IN_ONE_YEAR
+from .utils.magic import US_TREASURY_YIELD, DAYS_IN_ONE_YEAR, TRADING_DAYS_IN_ONE_YEAR, TIMEZONE
 
 def backtest(symbol, start, end, strategy):
     ## 目前没有考虑双向持仓
@@ -31,7 +32,11 @@ def backtest(symbol, start, end, strategy):
     result = []
 
     if isinstance(symbol, str):
+        # 运行回测引擎得到结果
         result = _single_symbol_engine(symbol, start, end, strategy)
+        # 修改回测账单时区
+        result = _convert_result_time(result, TIMEZONE)
+        
     elif isinstance(symbol, list):
         _multi_symbol_engine()
 
@@ -124,6 +129,30 @@ def _single_symbol_engine(symbol, start, end, strategy):
 
 def _multi_symbol_engine():
     pass
+
+def _convert_result_time(result, timedelta):
+    """
+    由于ccxt的默认时间为0时区, 所以为了更好地对比回测账单和实盘账单
+    新增该函数用以调整回测账单的时区
+    timedelta即为时区修正的小时数
+    eg: timedelta=8 => UTG+8
+    """
+    if not result:
+        print("No result now!")
+        return
+    
+    updated_result = []
+    for entry in result:
+        updated_entry = entry.copy()
+
+        if 'open_date' in updated_entry:
+            updated_entry['open_date'] = updated_entry['open_date'] + datetime.timedelta(hours=timedelta)
+        if 'close_date' in updated_entry:
+            updated_entry['close_date'] = updated_entry['close_date'] + datetime.timedelta(hours=timedelta)
+        
+        updated_result.append(updated_entry)
+    
+    return updated_result
 
 def evaluate_strategy(result, init_balance, risk_free_rate=US_TREASURY_YIELD):
     df = pd.DataFrame(result)

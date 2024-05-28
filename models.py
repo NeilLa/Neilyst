@@ -47,7 +47,7 @@ class Strategy(ABC):
 
 class Signal():
     def __init__(self, dir, price, amount):
-        self.dir = dir
+        self.dir = dir # long/short/None
         self.price = price
         self.amount = amount
 

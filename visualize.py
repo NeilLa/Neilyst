@@ -2,7 +2,7 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 
-def show_pnl(data, indicators, result, init_balance):
+def show_pnl(data, result, init_balance, indicators=None):
     df = pd.DataFrame(data)
     df_result = pd.DataFrame(result)
 
@@ -60,9 +60,10 @@ def show_pnl(data, indicators, result, init_balance):
     ax2.tick_params(axis='y', labelcolor=color)
     
     # 画指标曲线
-    for indicator_name, indicator_values in indicators.items():
-        if indicator_name not in ['rsi', 'volumn', 'macd']:
-            ax1.plot(df.index, indicator_values, label=indicator_name)
+    if indicators:
+        for indicator_name, indicator_values in indicators.items():
+            if indicator_name not in ['rsi', 'volumn', 'macd']:
+                ax1.plot(df.index, indicator_values, label=indicator_name)
     
     # 图例
     ax1.legend()

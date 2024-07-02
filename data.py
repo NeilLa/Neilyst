@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from .utils.setup import init_ccxt_exchange
 from .utils.folder import check_folder_exists, creat_folder, get_current_path
 
-def get_klines(symbol=None, start=None, end=None, timeframe='1h', retry_count=3, pause=0.001, exchange_name='binanceusdm', proxy='http://127.0.0.1:7890/'):
+def get_klines(symbol=None, start=None, end=None, timeframe='1h', auth=True, retry_count=3, pause=0.001, exchange_name='binanceusdm', proxy='http://127.0.0.1:7890/'):
     '''
       获取数据的对外接口, 在调用后, 先检查本地是否有相关的数据, 如果有数据, 则返回。如果没有相关数据, 调用fetch
 
@@ -26,6 +26,8 @@ def get_klines(symbol=None, start=None, end=None, timeframe='1h', retry_count=3,
         结束日期 format: YYYY-MM-DDTHH-MM-SSZ
       timeframe: string
         K线时间周期: 1m, 5m, 15m, 1h, 4h 等等
+      auth: bool
+        是否验证数据的完整性, 默认为是, 当为false时直接读取本地数据
       retry_count: int, 默认3
         遇到网络问题重复执行的次数
       pause: int 默认0.001
@@ -40,22 +42,23 @@ def get_klines(symbol=None, start=None, end=None, timeframe='1h', retry_count=3,
     current_path = get_current_path()
     data_path = f'{current_path}/data/{exchange_name}-{symbol_sp[0]}/{timeframe}'
 
-    missing_periods = _check_local_data(data_path, start, end, timeframe)
-    format_missing_periods = _format_missing_data(missing_periods)
+    if auth:
+        missing_periods = _check_local_data(data_path, start, end, timeframe)
+        format_missing_periods = _format_missing_data(missing_periods)
 
-    for period in format_missing_periods:
-        start_time, end_time = period
-        attempts = 0
+        for period in format_missing_periods:
+            start_time, end_time = period
+            attempts = 0
 
-        while attempts < retry_count:
-            try:
-                klines = _fetch_klines(symbol, start_time, end_time, timeframe, exchange)
-                _save_data(data_path, klines)
-                break
-            except Exception as e:
-                print(f'Error fetching data: {e}')
-                attempts += 1
-                time.sleep(pause)
+            while attempts < retry_count:
+                try:
+                    klines = _fetch_klines(symbol, start_time, end_time, timeframe, exchange)
+                    _save_data(data_path, klines)
+                    break
+                except Exception as e:
+                    print(f'Error fetching data: {e}')
+                    attempts += 1
+                    time.sleep(pause)
     
     all_klines = _aggregate_data(data_path, start, end)
     

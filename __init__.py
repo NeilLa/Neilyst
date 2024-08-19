@@ -1,4 +1,4 @@
-from Neilyst.data import get_klines
+from Neilyst.data import get_klines, aggregate_custom_timeframe
 
 from Neilyst.analyze import load_history, calculate_win_rate
 

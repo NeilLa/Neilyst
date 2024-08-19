@@ -67,7 +67,7 @@ def get_klines(symbol=None, start=None, end=None, timeframe='1h', auth=True, ret
     
     return all_klines
 
-def aggregate_custom_timeframe(symbol, start, end, custom_timeframe, exchange_name='binanceusdm', proxy='http://127.0.0.1:7890/'):
+def aggregate_custom_timeframe(symbol, start, end, custom_timeframe, exchange_name='binanceusdm', proxy='http://127.0.0.1:7890/', auth=True):
     """
     聚合自定义时间周期的K线数据。
     
@@ -81,27 +81,31 @@ def aggregate_custom_timeframe(symbol, start, end, custom_timeframe, exchange_na
     """
     # 确定1分钟数据的存储路径
     timeframe = '1m'
+    symbol_sp = symbol.split('/')
     current_path = get_current_path()
-    data_path = f'{current_path}/data/{exchange_name}-{symbol.replace("/", "_")}/{timeframe}'
+    data_path = f'{current_path}/data/{exchange_name}-{symbol_sp[0]}/{timeframe}'
 
     # 检查并拉取缺失的1分钟数据
-    missing_periods = _check_local_data(data_path, start, end, timeframe)
-    if missing_periods:
-        format_missing_periods = _format_missing_data(missing_periods)
-        exchange = init_ccxt_exchange(exchange_name, proxy)
-        for period in format_missing_periods:
-            start_time, end_time = period
-            _fetch_klines(symbol, start_time, end_time, timeframe, exchange)
+    if auth:
+        missing_periods = _check_local_data(data_path, start, end, timeframe)
+        if missing_periods:
+            format_missing_periods = _format_missing_data(missing_periods)
+            exchange = init_ccxt_exchange(exchange_name, proxy)
+            for period in format_missing_periods:
+                start_time, end_time = period
+                _fetch_klines(symbol, start_time, end_time, timeframe, exchange)
 
     # 聚合数据为自定义时间周期
-    all_klines = _aggregate_data(data_path)
-    aggregated_klines = all_klines.resample(custom_timeframe).agg({
-        'open': 'first',
-        'high': 'max',
-        'low': 'min',
-        'close': 'last',
-        'volume': 'sum'
-    }).dropna()
+    all_klines = _aggregate_data(data_path, start, end)
+    custom_minutes = _convert_to_minutes(custom_timeframe)
+    aggregated_klines = _custom_resampler(all_klines, custom_minutes)
+
+    # 将原始index设置为对应的时间点
+    aggregated_klines.index = all_klines.index[::custom_minutes][:len(aggregated_klines)]
+
+    # 保存聚合后的数据
+    custom_data_path = f'{current_path}/data/{exchange_name}-{symbol_sp[0]}/{custom_timeframe}'
+    _save_data(custom_data_path, aggregated_klines)
 
     return aggregated_klines
 
@@ -292,3 +296,38 @@ def _format_missing_data(missing_data):
         formatted_missing_data.append((formatted_start, formatted_end))
 
     return formatted_missing_data
+
+def _convert_to_minutes(timeframe_str):
+    """
+    将自定义时间周期转换为分钟单位。
+    支持的时间单位: 分钟m、小时h、天d、周w、月m
+    """
+    unit = timeframe_str[-1]
+    amount = float(timeframe_str[:-1])
+
+    if unit == 'm':  # 分钟
+        return int(amount)
+    elif unit == 'h':  # 小时
+        return int(amount * 60)
+    elif unit == 'd':  # 天
+        return int(amount * 1440)  # 1天 = 1440分钟
+    elif unit == 'w':  # 周
+        return int(amount * 10080)  # 1周 = 10080分钟
+    elif unit == 'M':  # 月（按30天计算）
+        return int(amount * 43200)  # 1月 = 43200分钟（30天）
+    else:
+        raise ValueError(f"Unsupported timeframe: {timeframe_str}")
+    
+def _custom_resampler(data, custom_minutes):
+    # 自定义时间窗口数据聚合器
+    resampled = []
+    for i in range(0, len(data), custom_minutes):
+        chunk = data.iloc[i:i + custom_minutes]
+        resampled.append({
+            'open': chunk['open'].iloc[0],
+            'high': chunk['high'].max(),
+            'low': chunk['low'].min(),
+            'close': chunk['close'].iloc[-1],
+            'volume': chunk['volume'].sum()
+        })
+    return pd.DataFrame(resampled)

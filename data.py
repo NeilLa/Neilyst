@@ -93,8 +93,8 @@ def aggregate_custom_timeframe(symbol, start, end, custom_timeframe, exchange_na
             exchange = init_ccxt_exchange(exchange_name, proxy)
             for period in format_missing_periods:
                 start_time, end_time = period
-                _fetch_klines(symbol, start_time, end_time, timeframe, exchange)
-
+                klines_1m = _fetch_klines(symbol, start_time, end_time, timeframe, exchange)
+                _save_data(data_path, klines_1m)
     # 聚合数据为自定义时间周期
     all_klines = _aggregate_data(data_path, start, end)
     custom_minutes = _convert_to_minutes(custom_timeframe)

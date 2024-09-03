@@ -7,65 +7,33 @@ from .utils.setup import init_ccxt_exchange
 from .utils.folder import check_folder_exists, creat_folder, get_current_path
 
 def get_klines(symbol=None, start=None, end=None, timeframe='1h', auth=True, retry_count=3, pause=0.001, exchange_name='binanceusdm', proxy='http://127.0.0.1:7890/'):
-    '''
-      获取数据的对外接口, 在调用后, 先检查本地是否有相关的数据, 如果有数据, 则返回。如果没有相关数据, 调用fetch
-
-      相关数据指的是同一交易对的同一时间周期, 且有部份时间重合的数据
-
-      保存数据的目录是data-交易对-时间周期的三级结构
-      目录命名: data > exchange_name-symbol > timeframe > 每天一个文件. 文件名为 YYYY-MM-DD-HH:MM - YYYY-MM-DD-HH:MM
-      获取数据后自动保存, 加载
-
-    Paramaters
-    ------
-      symbol: string
-        交易对名称 e.g BTC/USDT, BTC_USDT
-      start: string
-        开始日期 format: YYYY-MM-DDTHH-MM-SSZ
-      end: string
-        结束日期 format: YYYY-MM-DDTHH-MM-SSZ
-      timeframe: string
-        K线时间周期: 1m, 5m, 15m, 1h, 4h 等等
-      auth: bool
-        是否验证数据的完整性, 默认为是, 当为false时直接读取本地数据
-      retry_count: int, 默认3
-        遇到网络问题重复执行的次数
-      pause: int 默认0.001
-        重复请求中暂停的秒数, 防止请求过多导致限频
-      exchange_name: string
-        ccxt提的数据来源交易所关键字, 默认为币安期货
-    '''
-
-    exchange = init_ccxt_exchange(exchange_name, proxy)
-
-    symbol_sp = symbol.split('/')
-    current_path = get_current_path()
-    data_path = f'{current_path}/data/{exchange_name}-{symbol_sp[0]}/{timeframe}'
-
-    if auth:
-        missing_periods = _check_local_data(data_path, start, end, timeframe)
-        format_missing_periods = _format_missing_data(missing_periods)
-
-        for period in format_missing_periods:
-            start_time, end_time = period
-            attempts = 0
-
-            while attempts < retry_count:
-                try:
-                    klines = _fetch_klines(symbol, start_time, end_time, timeframe, exchange)
-                    _save_data(data_path, klines)
-                    break
-                except Exception as e:
-                    print(f'Error fetching data: {e}')
-                    attempts += 1
-                    time.sleep(pause)
+    """
+    获取单个或多个 symbol 的 K 线数据。
     
-    all_klines = _aggregate_data(data_path, start, end)
-    
-    # drop timestamp column
-    all_klines = all_klines.drop(columns=['timestamp'])
-    
-    return all_klines
+    参数:
+    - symbol: string 或 list, 交易对名称或交易对名称列表 e.g 'BTC/USDT' 或 ['BTC/USDT', 'ETH/USDT']
+    - start: string, 开始日期 format: YYYY-MM-DDTHH-MM-SSZ
+    - end: string, 结束日期 format: YYYY-MM-DDTHH-MM-SSZ
+    - timeframe: string, K线时间周期: 1m, 5m, 15m, 1h, 4h 等等
+    - auth: bool, 是否验证数据的完整性, 默认为 True
+    - retry_count: int, 遇到网络问题重复执行的次数, 默认 3
+    - pause: int, 重复请求中暂停的秒数, 默认 0.001
+    - exchange_name: string, ccxt提的数据来源交易所关键字, 默认为币安期货
+    - proxy: string, 代理服务器地址, 默认为 'http://127.0.0.1:7890/'
+    """
+    if isinstance(symbol, str):
+        # 处理单个 symbol 的情况
+        return _get_single_symbol_klines(symbol, start, end, timeframe, auth, retry_count, pause, exchange_name, proxy)
+    elif isinstance(symbol, list):
+        # 处理多个 symbol 的情况
+        all_data = {}
+        for sym in symbol:
+            data = _get_single_symbol_klines(sym, start, end, timeframe, auth, retry_count, pause, exchange_name, proxy)
+            all_data[sym] = data
+
+        return all_data
+    else:
+        raise ValueError("symbol 参数必须是字符串或列表")
 
 def aggregate_custom_timeframe(symbol, start, end, custom_timeframe, exchange_name='binanceusdm', proxy='http://127.0.0.1:7890/', auth=True):
     """
@@ -153,6 +121,40 @@ def _fetch_klines(symbol=None, start=None, end=None, timeframe='1h', exchange=No
     df = df[(df.index >= start_date) & (df.index < end_date)]
 
     return df
+
+def _get_single_symbol_klines(symbol=None, start=None, end=None, timeframe='1h', auth=True, retry_count=3, pause=0.001, exchange_name='binanceusdm', proxy='http://127.0.0.1:7890/'):
+    """
+    获取单个 symbol 的 K 线数据。
+    """
+    exchange = init_ccxt_exchange(exchange_name, proxy)
+    symbol_sp = symbol.split('/')
+    current_path = get_current_path()
+    data_path = f'{current_path}/data/{exchange_name}-{symbol_sp[0]}/{timeframe}'
+
+    if auth:
+        missing_periods = _check_local_data(data_path, start, end, timeframe)
+        format_missing_periods = _format_missing_data(missing_periods)
+
+        for period in format_missing_periods:
+            start_time, end_time = period
+            attempts = 0
+
+            while attempts < retry_count:
+                try:
+                    klines = _fetch_klines(symbol, start_time, end_time, timeframe, exchange)
+                    _save_data(data_path, klines)
+                    break
+                except Exception as e:
+                    print(f'Error fetching data for {symbol}: {e}')
+                    attempts += 1
+                    time.sleep(pause)
+
+    all_klines = _aggregate_data(data_path, start, end)
+
+    # drop timestamp column
+    all_klines = all_klines.drop(columns=['timestamp'])
+
+    return all_klines
 
 def _check_symbol(symbol):
     if not symbol:

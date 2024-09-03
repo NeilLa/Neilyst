@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 from tqdm import tqdm
 import datetime
+import matplotlib.pyplot as plt
 from .data import get_klines
 from .models import Position
 from .utils.magic import US_TREASURY_YIELD, DAYS_IN_ONE_YEAR, TRADING_DAYS_IN_ONE_YEAR, TIMEZONE
@@ -38,7 +39,7 @@ def backtest(symbol, start, end, strategy):
         result = _convert_result_time(result, TIMEZONE)
         
     elif isinstance(symbol, list):
-        _multi_symbol_engine()
+        _multi_symbol_engine(symbol, start, end, strategy)
 
     return result
 
@@ -127,8 +128,13 @@ def _single_symbol_engine(symbol, start, end, strategy):
         
     return pos_history
 
-def _multi_symbol_engine():
-    pass
+def _multi_symbol_engine(symbols, start, end, strategy):
+    pos_historys = dict()
+    for symbol in symbols:
+        pos_historys[symbol] = _single_symbol_engine(symbol, start, end, strategy)
+        pos_historys[symbol] = _convert_result_time(pos_historys[symbol], TIMEZONE)
+    
+    return pos_historys
 
 def _convert_result_time(result, timedelta):
     """
@@ -208,3 +214,35 @@ def evaluate_strategy(result, init_balance, risk_free_rate=US_TREASURY_YIELD):
         'annual_return': annual_return,
         'sharpe_ratio': sharpe_ratio
     }
+
+def analyze_multi_symbol_results(pos_historys, init_balance, risk_free_rate=US_TREASURY_YIELD):
+    # 初始化总统计数据
+    cumulative_pnl = pd.Series(dtype='float64')
+    
+    # 创建绘图
+    plt.figure(figsize=(14, 7))
+
+    for symbol, history in pos_historys.items():
+        if not history:
+            print(f'No trading result for {symbol}')
+            continue
+
+        # 计算累计 PnL
+        df = pd.DataFrame(history)
+        symbol_cumulative_pnl = df['pnl'].cumsum()
+        cumulative_pnl = cumulative_pnl.add(symbol_cumulative_pnl, fill_value=0)
+        
+        # 绘制每个 symbol 的 PnL 曲线
+        plt.plot(symbol_cumulative_pnl.index, symbol_cumulative_pnl, label=symbol)
+
+    # 使用 evaluate_strategy 函数计算所有 symbol 的总指标
+    total_stats = evaluate_strategy(cumulative_pnl.reset_index().to_dict('records'), init_balance, risk_free_rate)
+
+    print(f'总收益: {total_stats["total_pnl"]}')
+    print(f'总胜率: {total_stats["win_rate"]}')
+    print(f'盈亏比: {total_stats["profit_loss_ratio"]}')
+    print(f'最大回撤: {total_stats["max_drawdown"]}')
+    print(f'年化收益率: {total_stats["annual_return"] * 100}%')
+    print(f'夏普比率: {total_stats["sharpe_ratio"]}')
+
+    return total_stats

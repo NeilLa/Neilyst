@@ -71,6 +71,46 @@ def show_pnl(data, result, init_balance, indicators=None):
     
     plt.show()
 
+def show_multi_symbol_pnl(results, init_balance):
+    """
+    显示多个symbol的PnL曲线，并绘制总的PnL曲线
+    """
+    plt.figure(figsize=(15, 8))
+
+    cumulative_pnl = pd.Series(dtype='float64')
+    symbol_colors = {}  # 存储每个symbol的颜色
+
+    # 遍历每个symbol的回测结果
+    for symbol, history in results.items():
+        df = pd.DataFrame(history)
+
+        if df.empty:
+            print(f'No trading result for {symbol}')
+            continue
+
+        # 计算每个symbol的累计PnL
+        df['cumulative_pnl'] = df['pnl'].cumsum() + init_balance
+        cumulative_pnl = cumulative_pnl.add(df['pnl'].cumsum(), fill_value=0)
+
+        # 为每个symbol分配颜色，并绘制PnL曲线
+        color = plt.cm.tab10(len(symbol_colors) % 10)  # 从10种颜色中选择
+        symbol_colors[symbol] = color
+        plt.plot(df['close_date'], df['cumulative_pnl'], label=f'{symbol} PnL', color=color)
+
+    # 计算并绘制总的PnL曲线
+    cumulative_pnl += init_balance
+    plt.plot(cumulative_pnl.index, cumulative_pnl, label='Total PnL', linewidth=2, color='black')
+
+    # 图表美化
+    plt.title('PnL Curves for Multiple Symbols')
+    plt.xlabel('Date')
+    plt.ylabel('PnL')
+    plt.legend()
+    plt.grid(True)
+
+    # 显示图表
+    plt.show()
+
 def show_indicators(data, indicators):
     # 确定有多少个指标需要放在副图中
     subplots_needed = sum(1 for indicator_name in indicators if indicator_name in ['rsi', 'volume', 'macd'])

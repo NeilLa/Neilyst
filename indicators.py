@@ -1,10 +1,27 @@
 import pandas_ta as ta
 import pandas as pd
+import inspect
 from .utils.string import split_letters_numbers
 
 def get_indicators(data, *args):
     """
-    对外的计算指标的接口
+    对外的计算指标的接口，支持单个或多个 symbol。
+    """
+    if isinstance(data, dict):
+        # 多 symbol 情况
+        all_indicators = {}
+        for symbol, df in data.items():
+            indicators_df = _calculate_indicators_for_single_symbol(df, *args)
+            all_indicators[symbol] = indicators_df
+
+        return all_indicators
+    else:
+        # 单 symbol 情况
+        return _calculate_indicators_for_single_symbol(data, *args)
+
+def _calculate_indicators_for_single_symbol(data, *args):
+    """
+    计算单个 symbol 的指标。
     """
     indicators = args
     indicators_df = pd.DataFrame()
@@ -18,21 +35,34 @@ def get_indicators(data, *args):
         if hasattr(ta, name):
             func = getattr(ta, name)
             try:
-                if name in ['supertrend']:  # 需要传递ohlc数据的指标
-                    if length is not None:
-                        result = func(data['high'], data['low'], data['close'], length=length)
-                    else:
-                        result = func(data['high'], data['low'], data['close'])
-                else:  # 只需要收盘价数据的指标
-                    if length is not None:
-                        result = func(data['close'], length=length)
-                    else:
-                        result = func(data['close'])
+                # 获取函数签名
+                sig = inspect.signature(func)
+                required_params = sig.parameters
+
+                # 构建传入的参数，根据函数所需的参数动态传递
+                kwargs = {}
+                if 'length' in required_params and length is not None:
+                    kwargs['length'] = length
+
+                # 根据函数签名传递数据列 (open, high, low, close, volume)
+                if 'open' in required_params:
+                    kwargs['open'] = data['open']
+                if 'high' in required_params:
+                    kwargs['high'] = data['high']
+                if 'low' in required_params:
+                    kwargs['low'] = data['low']
+                if 'close' in required_params:
+                    kwargs['close'] = data['close']
+                if 'volume' in required_params and 'volume' in data.columns:
+                    kwargs['volume'] = data['volume']
+
+                # 调用指标函数
+                result = func(**kwargs)
 
                 if result is None:
                     print(f'Indicator {name} returned None.')
                     continue
-                
+
                 # 处理返回多个列的情况
                 if isinstance(result, pd.DataFrame):
                     for col in result.columns:
@@ -48,4 +78,3 @@ def get_indicators(data, *args):
             print(f'Indicator {name} not found in pandas_ta.')
 
     return indicators_df
-

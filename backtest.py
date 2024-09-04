@@ -30,16 +30,16 @@ def backtest(symbol, start, end, strategy):
 
     # 判断是单币种还是多币种策略
 
-    result = []
-
     if isinstance(symbol, str):
+        result = []
         # 运行回测引擎得到结果
         result = _single_symbol_engine(symbol, start, end, strategy)
         # 修改回测账单时区
         result = _convert_result_time(result, TIMEZONE)
         
     elif isinstance(symbol, list):
-        _multi_symbol_engine(symbol, start, end, strategy)
+        result = {}
+        result = _multi_symbol_engine(symbol, start, end, strategy)
 
     return result
 
@@ -60,7 +60,7 @@ def _single_symbol_engine(symbol, start, end, strategy):
         current_pos.update_float_profit(row['close'])
         
         # 从策略函数获取策略信号
-        signal = strategy.run(index, row, current_pos, current_balance)
+        signal = strategy.run(index, row, current_pos, current_balance, symbol)
 
         if signal is not None:
             # 初始化交易成本
@@ -161,51 +161,71 @@ def _convert_result_time(result, timedelta):
     return updated_result
 
 def evaluate_strategy(result, init_balance, risk_free_rate=US_TREASURY_YIELD):
-    df = pd.DataFrame(result)
+    """
+    评估策略的绩效指标，支持单 symbol 和多 symbol。
+    
+    参数:
+    - result: 单 symbol 时为 list，多 symbol 时为 dict。
+    - init_balance: 初始资金。
+    - risk_free_rate: 无风险利率，默认为美国国债收益率。
+    
+    返回:
+    - 一个包含总收益、胜率、盈亏比、最大回撤、年化收益率、夏普比率等指标的字典。
+    """
+    
+    # 如果是单 symbol，直接转换为 DataFrame 进行计算
+    if isinstance(result, list):
+        return _evaluate_single_symbol(result, init_balance, risk_free_rate)
+    
+    # 如果是多 symbol，分别计算每个 symbol 的绩效，并汇总总的结果
+    elif isinstance(result, dict):
+        total_stats = _initialize_stats()
+
+        total_trades = 0  # 记录总交易次数，用于加权平均
+
+        for symbol, history in result.items():
+            symbol_stats = _evaluate_single_symbol(history, init_balance, risk_free_rate)
+            total_trades += len(history)
+            
+            # 累积每个 symbol 的绩效指标（按交易次数加权平均）
+            total_stats = _accumulate_stats(total_stats, symbol_stats, len(history))
+
+        # 计算加权平均的结果
+        total_stats = _finalize_stats(total_stats, total_trades)
+        
+        return total_stats
+
+    else:
+        raise ValueError("Invalid result format. Expected list or dict.")
+
+
+def _evaluate_single_symbol(history, init_balance, risk_free_rate=US_TREASURY_YIELD):
+    """
+    评估单个 symbol 的绩效指标。
+    
+    参数:
+    - history: 包含该 symbol 的交易历史。
+    - init_balance: 初始资金。
+    - risk_free_rate: 无风险利率。
+    
+    返回:
+    - 一个包含总收益、胜率、盈亏比、最大回撤、年化收益率、夏普比率等指标的字典。
+    """
+    
+    df = pd.DataFrame(history)
 
     if df.empty:
         print('No trading result')
         return
     
-    # 总盈亏
+    # 计算各项指标
     total_pnl = df['pnl'].sum()
-
-    # 胜率
-    win_rate = (df['pnl'] > 0).mean()
-
-    # 盈亏比
-    profit_loss_ratio = 0
-    average_win = df[df['pnl'] > 0]['pnl'].mean()
-    average_loss = df[df['pnl'] < 0]['pnl'].mean()
-    if average_loss != 0:
-        profit_loss_ratio = abs(average_win / average_loss)
-
-    # 最大回撤
-    cumulative_pnl = df['pnl'].cumsum()
-    cumulative_max = cumulative_pnl.cummax()
-    drawdown = cumulative_max - cumulative_pnl
-    max_drawdown = drawdown.max()
+    win_rate = _calculate_win_rate(df)
+    profit_loss_ratio = _calculate_profit_loss_ratio(df)
+    max_drawdown = _calculate_max_drawdown(df['pnl'])
+    annual_return = _calculate_annual_return(df, init_balance, total_pnl)
+    sharpe_ratio = _calculate_sharpe_ratio(df, init_balance, risk_free_rate)
     
-    # 年化收益
-    start_date = df['open_date'].iloc[0]
-    end_date = df['close_date'].iloc[-1]
-    days = (end_date - start_date).days
-    years = days / DAYS_IN_ONE_YEAR
-    final_balance = init_balance + total_pnl
-    annual_return = (((final_balance / init_balance) / years) - 1) if years != 0 else 0
-
-    # 夏普比率
-    daliy_returns = df['pnl'] / init_balance
-    excess_daily_returns = daliy_returns - (risk_free_rate / DAYS_IN_ONE_YEAR)
-    sharpe_ratio = (excess_daily_returns.mean() / excess_daily_returns.std()) * np.sqrt(TRADING_DAYS_IN_ONE_YEAR) if excess_daily_returns.std() != 0 else 0
-    
-    print(f'总收益: {total_pnl}')
-    print(f'总胜率: {win_rate}')
-    print(f'盈亏比: {profit_loss_ratio}')
-    print(f'最大回撤: {max_drawdown}')
-    print(f'年化收益率: {annual_return * 100}%')
-    print(f'夏普比率: {sharpe_ratio}')
-
     return {
         'total_pnl': total_pnl,
         'win_rate': win_rate,
@@ -215,34 +235,67 @@ def evaluate_strategy(result, init_balance, risk_free_rate=US_TREASURY_YIELD):
         'sharpe_ratio': sharpe_ratio
     }
 
-def analyze_multi_symbol_results(pos_historys, init_balance, risk_free_rate=US_TREASURY_YIELD):
-    # 初始化总统计数据
-    cumulative_pnl = pd.Series(dtype='float64')
-    
-    # 创建绘图
-    plt.figure(figsize=(14, 7))
+# 初始化统计结果的函数
+def _initialize_stats():
+    return {
+        'total_pnl': 0,
+        'win_rate': 0,
+        'profit_loss_ratio': 0,
+        'max_drawdown': 0,
+        'annual_return': 0,
+        'sharpe_ratio': 0
+    }
 
-    for symbol, history in pos_historys.items():
-        if not history:
-            print(f'No trading result for {symbol}')
-            continue
-
-        # 计算累计 PnL
-        df = pd.DataFrame(history)
-        symbol_cumulative_pnl = df['pnl'].cumsum()
-        cumulative_pnl = cumulative_pnl.add(symbol_cumulative_pnl, fill_value=0)
-        
-        # 绘制每个 symbol 的 PnL 曲线
-        plt.plot(symbol_cumulative_pnl.index, symbol_cumulative_pnl, label=symbol)
-
-    # 使用 evaluate_strategy 函数计算所有 symbol 的总指标
-    total_stats = evaluate_strategy(cumulative_pnl.reset_index().to_dict('records'), init_balance, risk_free_rate)
-
-    print(f'总收益: {total_stats["total_pnl"]}')
-    print(f'总胜率: {total_stats["win_rate"]}')
-    print(f'盈亏比: {total_stats["profit_loss_ratio"]}')
-    print(f'最大回撤: {total_stats["max_drawdown"]}')
-    print(f'年化收益率: {total_stats["annual_return"] * 100}%')
-    print(f'夏普比率: {total_stats["sharpe_ratio"]}')
-
+# 累积多 symbol 结果
+def _accumulate_stats(total_stats, symbol_stats, num_trades):
+    total_stats['total_pnl'] += symbol_stats['total_pnl']
+    total_stats['win_rate'] += symbol_stats['win_rate'] * num_trades
+    total_stats['profit_loss_ratio'] += symbol_stats['profit_loss_ratio'] * num_trades
+    total_stats['max_drawdown'] += symbol_stats['max_drawdown'] * num_trades
+    total_stats['annual_return'] += symbol_stats['annual_return'] * num_trades
+    total_stats['sharpe_ratio'] += symbol_stats['sharpe_ratio'] * num_trades
     return total_stats
+
+# 最终计算加权平均的结果
+def _finalize_stats(total_stats, total_trades):
+    if total_trades > 0:
+        total_stats['win_rate'] /= total_trades
+        total_stats['profit_loss_ratio'] /= total_trades
+        total_stats['max_drawdown'] /= total_trades
+        total_stats['annual_return'] /= total_trades
+        total_stats['sharpe_ratio'] /= total_trades
+    return total_stats
+
+# 各个指标的计算函数
+
+def _calculate_win_rate(df):
+    """ 计算胜率 """
+    return (df['pnl'] > 0).mean()
+
+def _calculate_profit_loss_ratio(df):
+    """ 计算盈亏比 """
+    average_win = df[df['pnl'] > 0]['pnl'].mean()
+    average_loss = df[df['pnl'] < 0]['pnl'].mean()
+    return abs(average_win / average_loss) if average_loss != 0 else 0
+
+def _calculate_max_drawdown(pnl_series):
+    """ 计算最大回撤 """
+    cumulative_pnl = pnl_series.cumsum()
+    cumulative_max = cumulative_pnl.cummax()
+    drawdown = cumulative_max - cumulative_pnl
+    return drawdown.max()
+
+def _calculate_annual_return(df, init_balance, total_pnl):
+    """ 计算年化收益 """
+    start_date = df['open_date'].iloc[0]
+    end_date = df['close_date'].iloc[-1]
+    days = (end_date - start_date).days
+    years = days / DAYS_IN_ONE_YEAR if days > 0 else 1  # 防止除零错误
+    final_balance = init_balance + total_pnl
+    return (((final_balance / init_balance) / years) - 1) if years != 0 else 0
+
+def _calculate_sharpe_ratio(df, init_balance, risk_free_rate):
+    """ 计算夏普比率 """
+    daily_returns = df['pnl'] / init_balance
+    excess_daily_returns = daily_returns - (risk_free_rate / DAYS_IN_ONE_YEAR)
+    return (excess_daily_returns.mean() / excess_daily_returns.std()) * np.sqrt(TRADING_DAYS_IN_ONE_YEAR) if excess_daily_returns.std() != 0 else 0

@@ -1,5 +1,6 @@
 import pandas_ta as ta
 import pandas as pd
+import numpy as np
 import inspect
 from .utils.string import split_letters_numbers
 

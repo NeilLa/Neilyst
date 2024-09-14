@@ -83,14 +83,62 @@ indicators = get_indicators(data, 'sma20', 'rsi14')
 ```python
 from models import Strategy, Signal
 
-class MyStrategy(Strategy):
-    def run(self, date, price_row, current_pos, current_balance):
-        # 实现你的交易策略逻辑
-        if price_row['sma20'] > price_row['sma50']:
-            return Signal('long', price_row['close'], current_balance / price_row['close'])
-        elif price_row['sma20'] < price_row['sma50']:
-            return Signal('short', price_row['close'], current_balance / price_row['close'])
-        return None
+# 策略class，一定要继承Neilyst.Strategy
+class DoubleMa(Neilyst.Strategy):
+    def __init__(self, total_balance, trading_fee_ratio, slippage_ratio, data=None, indicators=None):
+        super().__init__(total_balance, trading_fee_ratio, slippage_ratio, data, indicators)
+        self.total_balance = total_balance
+        self.data = data
+        self.indicators = indicators
+    
+    def run(self, date, price_row, current_pos, current_balance, symbol):
+        recent_data = self.get_recent_data(date, 10, self.data, self.indicators, symbol)  # 获取最近10条k线数据和指标数据
+        signal = None
+
+        if len(recent_data) >= 3:
+            # 获取最近的指标值
+            # 为了能跟实盘对应上，这里最新的一条k线默认是取-2
+            current_ma20 = recent_data.iloc[-2]['sma20']
+            current_ma60 = recent_data.iloc[-2]['sma60']
+
+            # 因此，前一条均线就是取的-3
+            prev_ma20 = recent_data.iloc[-3]['sma20']
+            prev_ma60 = recent_data.iloc[-3]['sma60']
+            
+            if current_pos.amount > 0:
+                # 此时有仓位，考虑平仓过程
+                # current_pos是一个class，具体的结构在model里面可以看到
+                # current_pos.dir是当前有的仓位的方向
+                # current_pos.amount这个属性表示的是当前仓位的数量
+                if current_pos.dir == 'long':
+                    if current_ma20 < current_ma60:
+                        signal = Neilyst.Signal('close', price_row['close'], current_pos.amount)
+                elif current_pos.dir == 'short':
+                    if current_ma20 > current_ma60:
+                        signal = Neilyst.Signal('close', price_row['close'], current_pos.amount)
+                # 这里的signal是返回的下单信号，三个参数分别是下单方向，下单价格，下单量
+                # 本框架会一直调用1min数据用来模拟ticker数据，price_row['close']指的就是当前分钟的收盘价
+                # 这样滑点会比直接使用data里面的close小一些，更加贴近实盘
+            else:
+                # 没有仓位，考虑开仓信号
+                # 这里的total_balance是策略运行时输入的初始余额
+                # 如果每次都用它来计算pos值就相当于每单都以固定的数额下单
+                # 如果想测试滚仓效果可以使用current_balance这个变量
+                # 这个变量表示当前所剩全部余额
+                pos = abs(self.total_balance / price_row['close'])
+                if current_ma20 > current_ma60 and prev_ma20 < prev_ma60:
+                        signal = Neilyst.Signal('long', price_row['close'], pos)
+                if current_ma20 < current_ma60 and prev_ma20 > prev_ma60:
+                        signal = Neilyst.Signal('short', price_row['close'], pos)
+        
+        # 最终返回一个signla
+        # 没有信号就返回None
+        return signal
+    
+    def pos_management(self, current_balance):
+        # 这里是仓位管理函数
+        # 可以按需求计算仓位
+        pass
 ```
 
 ### 4. 运行回测
@@ -102,25 +150,17 @@ from backtest import backtest
 from models import MyStrategy
 
 # 初始化策略
-strategy = MyStrategy(total_balance=1000, trading_fee_ratio=0.001, slippage_ratio=0.001)
+init_balance = 200
+strategy = DoubleMa(init_balance, 0.005, 0.01, data, indicators)
 
 # 运行回测
-result = backtest(symbol='BTC/USDT', start='2023-01-01', end='2023-12-31', strategy=strategy)
+result = Neilyst.backtest(symbol, start_time, end_time, strategy)
+
+# 计算结果
+evaluation = Neilyst.evaluate_strategy(result, init_balance)
 ```
 
-### 5. 分析回测结果
-
-使用 `analyze.py` 中的分析函数计算回测结果的各项指标，如盈亏比、胜率等。
-
-```python
-from analyze import calculate_win_rate
-
-# 计算胜率
-win_rate = calculate_win_rate(result)
-print(f'胜率: {win_rate * 100:.2f}%')
-```
-
-### 6. 可视化回测结果
+### 5. 可视化回测结果
 
 使用 `visualize.py` 中的可视化工具绘制回测结果和技术指标。
 

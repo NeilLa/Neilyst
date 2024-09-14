@@ -1,7 +1,12 @@
 # 本模块是对策略实盘交易历史的分析工具
+# 2014.9.14新添加了因子分析工具factor_analyzer
 
 import pandas as pd
 from .utils.magic import PNL_THRESHOLD
+
+class Factor_Analyzer():
+    def __init__(self):
+        pass
 
 def load_history(path):
     # 加载账单数据

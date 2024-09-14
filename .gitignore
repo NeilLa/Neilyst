@@ -1,4 +1,3 @@
-*.ipynb
 *.csv
 data
 __pycache__

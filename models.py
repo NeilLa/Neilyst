@@ -41,6 +41,10 @@ class Strategy(ABC):
         recent_data = data.loc[recent_data_idx]
         recent_indicators = indicators.loc[recent_indicators_idx]
 
+        # 移除重复的close列
+        if 'close' in recent_indicators.columns:
+            recent_indicators = recent_indicators.drop(columns=['close'])
+
         # 合并数据和指标
         recent_combined = pd.concat([recent_data, recent_indicators], axis=1, join='inner')
 

@@ -231,3 +231,7 @@ show_pnl(data, result, init_balance=1000)
 ## 贡献
 
 如果您有新的想法或改进建议，欢迎贡献代码。您可以通过提交 `pull request` 的方式参与项目改进。
+
+## 更新日志
+2024.10.16
+fix bug: 现在get_recent_data里面不会有重复的close列了

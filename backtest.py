@@ -7,7 +7,7 @@ from .data import get_klines
 from .models import Position
 from .utils.magic import US_TREASURY_YIELD, DAYS_IN_ONE_YEAR, TRADING_DAYS_IN_ONE_YEAR, TIMEZONE
 
-def backtest(symbol, start, end, strategy):
+def backtest(symbol, start, end, strategy, proxy='http://127.0.0.1:7890/'):
     ## 目前没有考虑双向持仓
 
     # 本函数是对外的回测接口函数
@@ -28,24 +28,26 @@ def backtest(symbol, start, end, strategy):
     # 另一种是同一个策略里包含多个币种，这样传入的symbol似乎是一个list
     # 可以考虑使用一个新的内部函数作为这种情况的驱动引擎
 
+    # 由于backtest也需要拉取数据 所以也添加一个proxy变量
+
     # 判断是单币种还是多币种策略
 
     if isinstance(symbol, str):
         result = []
         # 运行回测引擎得到结果
-        result = _single_symbol_engine(symbol, start, end, strategy)
+        result = _single_symbol_engine(symbol, start, end, strategy, proxy)
         # 修改回测账单时区
         result = _convert_result_time(result, TIMEZONE)
         
     elif isinstance(symbol, list):
         result = {}
-        result = _multi_symbol_engine(symbol, start, end, strategy)
+        result = _multi_symbol_engine(symbol, start, end, strategy, proxy)
 
     return result
 
-def _single_symbol_engine(symbol, start, end, strategy):
+def _single_symbol_engine(symbol, start, end, strategy, proxy):
     # 获取1min数据
-    ticker_data = get_klines(symbol, start, end, '1m')
+    ticker_data = get_klines(symbol, start, end, '1m', proxy)
     # 初始化仓位历史记录
     current_pos = Position(symbol)
     pos_history = []
@@ -128,10 +130,10 @@ def _single_symbol_engine(symbol, start, end, strategy):
         
     return pos_history
 
-def _multi_symbol_engine(symbols, start, end, strategy):
+def _multi_symbol_engine(symbols, start, end, strategy, proxy):
     pos_historys = dict()
     for symbol in symbols:
-        pos_historys[symbol] = _single_symbol_engine(symbol, start, end, strategy)
+        pos_historys[symbol] = _single_symbol_engine(symbol, start, end, strategy, proxy)
         pos_historys[symbol] = _convert_result_time(pos_historys[symbol], TIMEZONE)
     
     return pos_historys

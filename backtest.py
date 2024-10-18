@@ -182,16 +182,32 @@ def evaluate_strategy(result, init_balance, risk_free_rate=US_TREASURY_YIELD):
         total_stats = _initialize_stats()
 
         total_trades = 0  # 记录总交易次数，用于加权平均
+        earliest_start_date = None
+        latest_end_date = None
 
-        for symbol, history in result.items():
+        for _, history in result.items():
             symbol_stats = _evaluate_single_symbol(history, init_balance, risk_free_rate)
             total_trades += len(history)
+            total_trades += symbol_stats['total_trades']
+
+            # 更新最早开始日期和最晚结束日期
+            if earliest_start_date is None or symbol_stats['start_date'] < earliest_start_date:
+                earliest_start_date = symbol_stats['start_date']
+            if latest_end_date is None or symbol_stats['end_date'] > latest_end_date:
+                latest_end_date = symbol_stats['end_date']
             
             # 累积每个 symbol 的绩效指标（按交易次数加权平均）
             total_stats = _accumulate_stats(total_stats, symbol_stats, len(history))
+        
+        # 计算总的交易天数
+        total_days = (latest_end_date - earliest_start_date).days + 1 if earliest_start_date and latest_end_date else 1
 
         # 计算加权平均的结果
         total_stats = _finalize_stats(total_stats, total_trades)
+
+        # 添加总交易次数和平均每日交易次数
+        total_stats['total_trades'] = total_trades
+        total_stats['average_daily_trades'] = total_trades / total_days if total_days > 0 else 0
         
         return total_stats
 
@@ -209,7 +225,7 @@ def _evaluate_single_symbol(history, init_balance, risk_free_rate=US_TREASURY_YI
     - risk_free_rate: 无风险利率。
     
     返回:
-    - 一个包含总收益、胜率、盈亏比、最大回撤、年化收益率、夏普比率等指标的字典。
+    - 一个包含总收益、胜率、盈亏比、最大回撤、年化收益率、夏普比率、交易次数、日均交易次数等指标的字典。
     """
     
     df = pd.DataFrame(history)
@@ -217,6 +233,17 @@ def _evaluate_single_symbol(history, init_balance, risk_free_rate=US_TREASURY_YI
     if df.empty:
         print('No trading result')
         return
+    
+    # 计算交易次数
+    total_trades = len(df)
+
+    # 计算交易期间的天数
+    start_date = df['open_date'].iloc[0]
+    end_date = df['close_date'].iloc[-1]
+    total_days = (end_date - start_date).days + 1  # 加1以包含开始和结束日期
+
+    # 计算日均交易次数
+    average_daily_trades = total_trades / total_days if total_days > 0 else 0
     
     # 计算各项指标
     total_pnl = df['pnl'].sum()
@@ -232,7 +259,11 @@ def _evaluate_single_symbol(history, init_balance, risk_free_rate=US_TREASURY_YI
         'profit_loss_ratio': profit_loss_ratio,
         'max_drawdown': max_drawdown,
         'annual_return': annual_return,
-        'sharpe_ratio': sharpe_ratio
+        'sharpe_ratio': sharpe_ratio,
+        'total_trades': total_trades,
+        'average_daily_trades': average_daily_trades,
+        'start_date': start_date,
+        'end_date': end_date
     }
 
 # 初始化统计结果的函数

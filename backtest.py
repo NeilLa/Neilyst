@@ -47,7 +47,7 @@ def backtest(symbol, start, end, strategy, proxy='http://127.0.0.1:7890/'):
 
 def _single_symbol_engine(symbol, start, end, strategy, proxy):
     # 获取1min数据
-    ticker_data = get_klines(symbol, start, end, '1m', proxy)
+    ticker_data = get_klines(symbol, start, end, '1m', proxy=proxy)
     # 初始化仓位历史记录
     current_pos = Position(symbol)
     pos_history = []

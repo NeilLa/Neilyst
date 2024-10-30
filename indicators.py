@@ -42,6 +42,7 @@ def _calculate_indicators_for_single_symbol(data, *args):
         else:
             col_name = name
 
+
         if hasattr(ta, name):
             func = getattr(ta, name)
         else:
@@ -68,7 +69,7 @@ def _calculate_indicators_for_single_symbol(data, *args):
                 kwargs['std_length'] = params[0]
             if 'atr_length' in required_params and len(params) >= 2:
                 kwargs['atr_length'] = params[1]
-            if 'length' in required_params and params is not None:
+            if 'length' in required_params and len(params) >= 1:
                 kwargs['length'] = params[0]
 
             # 根据函数签名传递数据列 (open, high, low, close, volume)
@@ -100,6 +101,8 @@ def _calculate_indicators_for_single_symbol(data, *args):
             indicators_df = indicators_df.fillna(method='bfill')
         except Exception as e:
             print(f'Error calculating indicator {name}: {e}')
+            import traceback
+            traceback.print_exc()
 
     return indicators_df
 

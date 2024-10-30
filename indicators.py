@@ -35,9 +35,12 @@ def _calculate_indicators_for_single_symbol(data, *args):
     indicators_df['close'] = data['close']
 
     for indicator in indicators:
-        name, length = split_letters_numbers(indicator)
-        length = int(length) if length else None
-        col_name = f'{name}{length}' if length else f'{name}'
+        name, params = split_letters_numbers(indicator)
+        params = [int(p) for p in params if p.isdigit()] if params else []
+        if params:
+            col_name = f"{name}_{'_'.join(map(str, params))}"
+        else:
+            col_name = name
 
         if hasattr(ta, name):
             func = getattr(ta, name)
@@ -59,8 +62,14 @@ def _calculate_indicators_for_single_symbol(data, *args):
 
             # 构建传入的参数，根据函数所需的参数动态传递
             kwargs = {}
-            if 'length' in required_params and length is not None:
-                kwargs['length'] = length
+
+           # 处理 std_length 和 atr_length 参数
+            if 'std_length' in required_params and len(params) >= 1:
+                kwargs['std_length'] = params[0]
+            if 'atr_length' in required_params and len(params) >= 2:
+                kwargs['atr_length'] = params[1]
+            if 'length' in required_params and params is not None:
+                kwargs['length'] = params[0]
 
             # 根据函数签名传递数据列 (open, high, low, close, volume)
             if 'open' in required_params:

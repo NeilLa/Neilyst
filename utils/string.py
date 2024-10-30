@@ -1,21 +1,22 @@
-# 有关字符串处理的功能函数
+import re
 
 def split_letters_numbers(s):
     """
-    Split a string into two parts: the first part contains letters and
-    the second part contains numbers.
-
-    Args:
-    s (str): The input string to split.
-
-    Returns:
-    tuple: A tuple containing two elements, the first is the letters part
-           and the second is the numbers part of the input string.
+    将指标名称和参数分开，支持多个参数。
+    例如：
+    - 'normalized_stddev14_14' => ('normalized_stddev', ['14', '14'])
+    - 'normalized_stddev' => ('normalized_stddev', [])
     """
-    # 找到第一个数字字符的索引
-    for i, char in enumerate(s):
-        if char.isdigit():
-            # 返回分割后的两部分
-            return s[:i], s[i:]
-    # 如果没有数字，返回整个字符串和空字符串
-    return s, ''
+    # 使用正则表达式匹配指标名称和参数部分
+    match = re.match(r'^([A-Za-z_]+)(?:_(\d+(?:_\d+)*))?$', s)
+    if match:
+        name = match.group(1)
+        params_str = match.group(2)
+        if params_str:
+            params = params_str.split('_')
+        else:
+            params = []
+        return name, params
+    else:
+        # 如果不匹配，返回原字符串作为名称，参数为空
+        return s, []

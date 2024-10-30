@@ -237,5 +237,9 @@ show_pnl(data, result, init_balance=1000)
 fix bug: 现在get_recent_data里面不会有重复的close列了
 
 2024.10.18
-update: 现在策略评估新增了交易次数和日均交易次数两个新指标，同时支持多币种
-fix: 修复了设置不同的proxy后，backtest拉取1min数据错误的问题，现在backtest函数也支持输入新的proxy变量了
+update: 现在策略评估新增了交易次数和日均交易次数两个新指标，同时支持多币种  
+fix: 修复了设置不同的proxy后，backtest拉取1min数据错误的问题，现在backtest函数也支持输入新的proxy变量了  
+
+2024.10.30
+update: 现在支持使用自建的指标库了，自建指标库为indicators_lib，当get_indicators无法从pandas_ta获取相应指标时，会从indicators_lib中再搜索一次  
+

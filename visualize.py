@@ -12,6 +12,19 @@ def show_pnl(data, result, init_balance, indicators=None):
     # 计算余额变化
     df_result['cumulative_pnl'] = df_result['pnl'].cumsum() + init_balance
 
+    # 获取初始日期
+    initial_date = df.index[0]
+
+    # 创建包含初始余额的DataFrame
+    initial_balance_df = pd.DataFrame({
+        'close_date': [initial_date],
+        'cumulative_pnl': [init_balance]
+    })
+
+    # 合并初始余额和交易结果
+    df_balance = pd.concat([initial_balance_df, df_result[['close_date', 'cumulative_pnl']]], ignore_index=True)
+    df_balance = df_balance.sort_values('close_date').reset_index(drop=True)
+
     # 设置图像属性
     fig, ax1 = plt.subplots(figsize=(15, 8))
 
@@ -56,7 +69,7 @@ def show_pnl(data, result, init_balance, indicators=None):
     ax2 = ax1.twinx()
     color = 'tab:red'
     ax2.set_ylabel('Balance', color=color)
-    ax2.plot(df_result['close_date'], df_result['cumulative_pnl'], color=color, label='Balance')
+    ax2.plot(df_balance['close_date'], df_balance['cumulative_pnl'], color=color, label='Balance')
     ax2.tick_params(axis='y', labelcolor=color)
     
     # 画指标曲线
@@ -71,17 +84,31 @@ def show_pnl(data, result, init_balance, indicators=None):
     
     plt.show()
 
-import pandas as pd
-import matplotlib.pyplot as plt
-
 def show_multi_symbol_pnl(results, init_balance):
     """
     显示多个 symbol 的 PnL 曲线，并绘制总的 PnL 曲线
     """
     plt.figure(figsize=(15, 8))
 
-    cumulative_pnl = pd.Series(dtype='float64')
+    cumulative_pnl_total = pd.Series(dtype='float64')
     symbol_colors = {}  # 存储每个 symbol 的颜色
+
+    # 获取所有交易的最早日期
+    initial_dates = []
+    for history in results.values():
+        df = pd.DataFrame(history)
+        if not df.empty:
+            initial_dates.append(df['close_date'].min())
+    if not initial_dates:
+        print('No trading data available.')
+        return
+    initial_date = min(initial_dates)
+
+    # 创建包含初始余额的 DataFrame
+    initial_balance_df = pd.DataFrame({
+        'close_date': [initial_date],
+        'cumulative_pnl': [init_balance]
+    })
 
     # 遍历每个 symbol 的回测结果
     for symbol, history in results.items():
@@ -94,17 +121,37 @@ def show_multi_symbol_pnl(results, init_balance):
         # 计算每个 symbol 的累计 PnL
         df['cumulative_pnl'] = df['pnl'].cumsum() + init_balance
 
-        # 累加到总的 cumulative_pnl 中，按日期对齐
-        cumulative_pnl = cumulative_pnl.add(df.set_index('close_date')['pnl'].cumsum(), fill_value=0)
+        # 添加初始余额点
+        df_symbol_balance = pd.concat([initial_balance_df, df[['close_date', 'cumulative_pnl']]], ignore_index=True)
+        df_symbol_balance = df_symbol_balance.sort_values('close_date').reset_index(drop=True)
+
+        # 为总的 cumulative_pnl_total 累加
+        cumulative_pnl_total = cumulative_pnl_total.add(
+            df_symbol_balance.set_index('close_date')['cumulative_pnl'] - init_balance,
+            fill_value=0
+        )
 
         # 为每个 symbol 分配颜色，并绘制 PnL 曲线
         color = plt.cm.tab10(len(symbol_colors) % 10)  # 从10种颜色中选择
         symbol_colors[symbol] = color
-        plt.plot(df['close_date'], df['cumulative_pnl'], label=f'{symbol} PnL', color=color)
+        plt.plot(df_symbol_balance['close_date'], df_symbol_balance['cumulative_pnl'],
+                 label=f'{symbol} PnL', color=color)
 
     # 计算并绘制总的 PnL 曲线
-    cumulative_pnl += init_balance
-    # plt.plot(cumulative_pnl.index, cumulative_pnl, label='Total PnL', linewidth=2, color='black')
+    cumulative_pnl_total += init_balance
+
+    # 将 cumulative_pnl_total 转换为 DataFrame，并添加初始余额点
+    df_total_balance = cumulative_pnl_total.reset_index()
+    df_total_balance.columns = ['close_date', 'cumulative_pnl']
+
+    # 添加初始余额点
+    if initial_date not in df_total_balance['close_date'].values:
+        df_total_balance = pd.concat([initial_balance_df, df_total_balance], ignore_index=True)
+        df_total_balance = df_total_balance.sort_values('close_date').reset_index(drop=True)
+
+    # 绘制总的 PnL 曲线
+    plt.plot(df_total_balance['close_date'], df_total_balance['cumulative_pnl'],
+             label='Total PnL', linewidth=2, color='black')
 
     # 图表美化
     plt.title('PnL Curves for Multiple Symbols')

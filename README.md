@@ -249,3 +249,5 @@ e.g:
 indicators = Neilyst.get_indicators(data, 'ohlc_ema_8', 'ohlc_ema_30', 'normalized_stddev_14_14')
 ```
 
+2024.11.07
+update: 现在Pnl可视化会从初始资金开始画图而不是第一次交易之后的余额

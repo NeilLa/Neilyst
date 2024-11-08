@@ -84,13 +84,86 @@ def show_pnl(data, result, init_balance, indicators=None):
     
     plt.show()
 
+def show_total_pnl(results, init_balance):
+    """
+    显示多 symbol 的总 PnL 曲线。
+    
+    参数：
+    - results: 多 symbol 的交易结果字典，键为 symbol，值为交易结果列表。
+    - init_balance: 初始资金。
+    """
+
+    # 创建一个空的 DataFrame，用于存储所有 symbol 的余额时间序列
+    all_balances = pd.DataFrame()
+
+    # 遍历每个 symbol 的交易结果
+    for symbol, trades in results.items():
+        df_trades = pd.DataFrame(trades)
+
+        if df_trades.empty:
+            print(f'No trading result for {symbol}')
+            continue
+
+        # 提取 'close_date' 和 'balance' 列，构建余额时间序列
+        balance_series = df_trades[['close_date', 'balance']].copy()
+        balance_series['close_date'] = pd.to_datetime(balance_series['close_date'])
+        balance_series.set_index('close_date', inplace=True)
+
+        # 添加初始余额点
+        # 获取该 symbol 的最早交易日期
+        earliest_date = balance_series.index.min()
+        # 创建包含初始余额的 DataFrame
+        initial_balance_df = pd.DataFrame({
+            'balance': [init_balance]
+        }, index=[earliest_date])
+
+        # 将初始余额 DataFrame 与余额时间序列 DataFrame 合并
+        balance_series = pd.concat([initial_balance_df, balance_series], axis=0)
+        balance_series = balance_series.sort_index()
+        # 去重（如果初始余额和第一个交易在同一天，会有重复的索引）
+        balance_series = balance_series[~balance_series.index.duplicated(keep='first')]
+
+        # 将该 symbol 的余额时间序列添加到 all_balances DataFrame 中
+        balance_series = balance_series.rename(columns={'balance': symbol})
+        all_balances = pd.concat([all_balances, balance_series], axis=1)
+
+    if all_balances.empty:
+        print('No trading data available.')
+        return
+
+    # 对齐所有 symbol 的日期索引
+    all_balances = all_balances.sort_index()
+    # 使用前向填充填充缺失值
+    all_balances = all_balances.fillna(method='ffill')
+    # 将初始缺失值填充为初始余额
+    all_balances = all_balances.fillna(init_balance)
+
+    # 获取所有的 symbol 列（排除可能存在的非 symbol 列）
+    symbol_columns = [col for col in all_balances.columns if col != 'Total Balance']
+    # 计算组合的总余额
+    all_balances['Total Balance'] = all_balances[symbol_columns].sum(axis=1)
+
+    # 绘制组合的总 PnL 曲线
+    plt.figure(figsize=(15, 8))
+    plt.plot(all_balances.index, all_balances['Total Balance'], label='Total Balance', color='black', linewidth=2)
+
+    # 绘制每个 symbol 的余额曲线（可选）
+    # for symbol in symbol_columns:
+    #     plt.plot(all_balances.index, all_balances[symbol], label=f'{symbol} Balance', linestyle='--')
+
+    plt.title('Total PnL Over Time')
+    plt.xlabel('Date')
+    plt.ylabel('Balance')
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
 def show_multi_symbol_pnl(results, init_balance):
     """
-    显示多个 symbol 的 PnL 曲线，并绘制总的 PnL 曲线
+    显示多个 symbol 的 PnL 曲线
     """
     plt.figure(figsize=(15, 8))
 
-    cumulative_pnl_total = pd.Series(dtype='float64')
     symbol_colors = {}  # 存储每个 symbol 的颜色
 
     # 获取所有交易的最早日期
@@ -125,33 +198,11 @@ def show_multi_symbol_pnl(results, init_balance):
         df_symbol_balance = pd.concat([initial_balance_df, df[['close_date', 'cumulative_pnl']]], ignore_index=True)
         df_symbol_balance = df_symbol_balance.sort_values('close_date').reset_index(drop=True)
 
-        # 为总的 cumulative_pnl_total 累加
-        cumulative_pnl_total = cumulative_pnl_total.add(
-            df_symbol_balance.set_index('close_date')['cumulative_pnl'] - init_balance,
-            fill_value=0
-        )
-
         # 为每个 symbol 分配颜色，并绘制 PnL 曲线
         color = plt.cm.tab10(len(symbol_colors) % 10)  # 从10种颜色中选择
         symbol_colors[symbol] = color
         plt.plot(df_symbol_balance['close_date'], df_symbol_balance['cumulative_pnl'],
                  label=f'{symbol} PnL', color=color)
-
-    # 计算并绘制总的 PnL 曲线
-    cumulative_pnl_total += init_balance
-
-    # 将 cumulative_pnl_total 转换为 DataFrame，并添加初始余额点
-    df_total_balance = cumulative_pnl_total.reset_index()
-    df_total_balance.columns = ['close_date', 'cumulative_pnl']
-
-    # 添加初始余额点
-    if initial_date not in df_total_balance['close_date'].values:
-        df_total_balance = pd.concat([initial_balance_df, df_total_balance], ignore_index=True)
-        df_total_balance = df_total_balance.sort_values('close_date').reset_index(drop=True)
-
-    # 绘制总的 PnL 曲线
-    plt.plot(df_total_balance['close_date'], df_total_balance['cumulative_pnl'],
-             label='Total PnL', linewidth=2, color='black')
 
     # 图表美化
     plt.title('PnL Curves for Multiple Symbols')

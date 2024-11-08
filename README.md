@@ -234,20 +234,24 @@ show_pnl(data, result, init_balance=1000)
 如果您有新的想法或改进建议，欢迎贡献代码。您可以通过提交 `pull request` 的方式参与项目改进。
 
 ## 更新日志
-2024.10.16
+2024.10.16  
 fix bug: 现在get_recent_data里面不会有重复的close列了
 
-2024.10.18
+2024.10.18  
 update: 现在策略评估新增了交易次数和日均交易次数两个新指标，同时支持多币种  
 fix: 修复了设置不同的proxy后，backtest拉取1min数据错误的问题，现在backtest函数也支持输入新的proxy变量了  
 
-2024.10.30
+2024.10.30  
 update: 现在支持使用自建的指标库了，自建指标库为indicators_lib，当get_indicators无法从pandas_ta获取相应指标时，会从indicators_lib中再搜索一次  
-update: 更新了归一化ATR指标，首先计算了价格序列的标准差，再计算相同长度窗口的ATR，获取市场的平均波动性，然后再使用标准差/ATR，就得到了归一化的标准差。可以用来衡量归一化的波动性。并且，由于该指标需要两个参数，现在get_indicators支持多个参数的输入了。并且输入格式也进行了相应的改变。
+update: 更新了归一化ATR指标，首先计算了价格序列的标准差，再计算相同长度窗口的ATR，获取市场的平均波动性，然后再使用标准差/ATR，就得到了归一化的标准差。可以用来衡量归一化的波动性。并且，由于该指标需要两个参数，现在get_indicators支持多个参数的输入了。并且输入格式也进行了相应的改变。  
 e.g:
 ``` Python
 indicators = Neilyst.get_indicators(data, 'ohlc_ema_8', 'ohlc_ema_30', 'normalized_stddev_14_14')
 ```
 
-2024.11.07
-update: 现在Pnl可视化会从初始资金开始画图而不是第一次交易之后的余额
+2024.11.07  
+update: 现在Pnl可视化会从初始资金开始画图而不是第一次交易之后的余额。
+
+2024.11.08  
+fix: 修复了一个计算年化收益率的bug，现在年化收益率的结果应当是正确的了。
+add: 新增了show_total_pnl方法，现在可以显示多symbol的总净值曲线了。

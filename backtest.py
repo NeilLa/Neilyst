@@ -319,13 +319,41 @@ def _calculate_max_drawdown(pnl_series):
     return drawdown.max()
 
 def _calculate_annual_return(df, init_balance, total_pnl):
-    """ 计算年化收益 """
+    """
+    计算简单年化收益率（不考虑复利）。
+    
+    参数：
+    - df: 包含交易记录的DataFrame，必须包含'open_date'和'close_date'列，且为datetime类型。
+    - init_balance: 初始资金（正数）。
+    - total_pnl: 总盈亏（可以为负数）。
+    
+    返回：
+    - annual_return: 简单年化收益率（浮点数）。
+    """
+    # 检查初始资金
+    if init_balance <= 0:
+        raise ValueError("初始资金必须为正数")
+    
+    # 检查交易记录
+    if df.empty:
+        return 0
+
+    # 确保日期列为datetime类型
+    df['open_date'] = pd.to_datetime(df['open_date'])
+    df['close_date'] = pd.to_datetime(df['close_date'])
+    
     start_date = df['open_date'].iloc[0]
     end_date = df['close_date'].iloc[-1]
-    days = (end_date - start_date).days
-    years = days / DAYS_IN_ONE_YEAR if days > 0 else 1  # 防止除零错误
-    final_balance = init_balance + total_pnl
-    return (((final_balance / init_balance) / years) - 1) if years != 0 else 0
+    total_days = (end_date - start_date).days
+    
+    if total_days <= 0:
+        return 0  # 交易周期不足，无法计算年化收益
+    
+    years = total_days / DAYS_IN_ONE_YEAR
+
+    # 计算简单年化收益率
+    annual_return = (total_pnl) / (init_balance * years)
+    return annual_return
 
 def _calculate_sharpe_ratio(df, init_balance, risk_free_rate):
     """ 计算夏普比率 """

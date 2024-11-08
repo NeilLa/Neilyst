@@ -8,4 +8,4 @@ from Neilyst.models import Strategy, Signal
 
 from Neilyst.indicators import get_indicators
 
-from Neilyst.visualize import show_pnl, show_indicators, show_multi_symbol_pnl, show_total_pnl
+from Neilyst.visualize import show_pnl, show_indicators, show_multi_symbol_pnl, show_total_pnl, show_return_distribution

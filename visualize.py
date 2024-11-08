@@ -1,5 +1,6 @@
 # 可视化模块
 import pandas as pd
+import seaborn as sns
 import matplotlib.pyplot as plt
 
 def show_pnl(data, result, init_balance, indicators=None):
@@ -250,3 +251,78 @@ def show_indicators(data, indicators):
 
     # 显示图表
     plt.show()
+
+def show_return_distribution(results, bins=50):
+    """
+    绘制收益率分布的直方图，支持单 symbol 和多 symbol。
+
+    参数：
+    - results: 单 symbol 时为列表，多 symbol 时为字典。
+    - bins: 直方图的分箱数量，默认为50。
+    """
+    # 判断是单 symbol 还是多 symbol
+    if isinstance(results, list):
+        # 单 symbol 情况
+        df = pd.DataFrame(results)
+        if df.empty or 'pnl' not in df.columns or 'open_price' not in df.columns or 'amount' not in df.columns or 'dir' not in df.columns:
+            print('交易数据缺少必要的字段。')
+            return
+        # 计算收益率
+        df['return'] = df.apply(_calculate_trade_return, axis=1)
+        return_data = df['return']
+        title = 'Return Distribution'
+    elif isinstance(results, dict):
+        # 多 symbol 情况
+        return_list = []
+        for _, trades in results.items():
+            df = pd.DataFrame(trades)
+            if not df.empty and all(col in df.columns for col in ['pnl', 'open_price', 'amount', 'dir']):
+                df['return'] = df.apply(_calculate_trade_return, axis=1)
+                return_list.extend(df['return'].tolist())
+        if not return_list:
+            print('没有可用的收益率数据。')
+            return
+        return_data = pd.Series(return_list)
+        title = 'Combined Return Distribution'
+    else:
+        print('Invalid results format.')
+        return
+
+    # 转换收益率为百分比
+    return_data = return_data * 100
+
+    # 绘制直方图和核密度估计曲线
+    plt.figure(figsize=(10, 6))
+    sns.histplot(return_data, bins=bins, kde=True, stat="density", edgecolor='k', alpha=0.7)
+
+    # 计算并绘制平均收益率
+    mean_return = return_data.mean()
+    plt.axvline(mean_return, color='r', linestyle='dashed', linewidth=1)
+    plt.text(mean_return, plt.ylim()[1]*0.9, f'Mean: {mean_return:.2f}%')
+
+    plt.title(title)
+    plt.xlabel('Return (%)')
+    plt.ylabel('Density')
+    plt.grid(True)
+    plt.show()
+
+def _calculate_trade_return(trade):
+    """
+    计算单笔交易的收益率。
+
+    参数：
+    - trade: 包含单笔交易数据的 Series。
+
+    返回：
+    - 收益率（浮点数）。
+    """
+    pnl = trade['pnl']
+    dir = trade['dir']
+    open_price = trade['open_price']
+    amount = trade['amount']
+    # 投入资金的计算
+    invested_capital = open_price * amount
+    if invested_capital == 0:
+        return 0  # 避免除以零
+    trade_return = pnl / invested_capital
+    return trade_return

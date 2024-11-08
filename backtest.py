@@ -2,7 +2,6 @@ import pandas as pd
 import numpy as np
 from tqdm import tqdm
 import datetime
-import matplotlib.pyplot as plt
 from .data import get_klines
 from .models import Position
 from .utils.magic import US_TREASURY_YIELD, DAYS_IN_ONE_YEAR, TRADING_DAYS_IN_ONE_YEAR, TIMEZONE
@@ -165,54 +164,21 @@ def _convert_result_time(result, timedelta):
 def evaluate_strategy(result, init_balance, risk_free_rate=US_TREASURY_YIELD):
     """
     评估策略的绩效指标，支持单 symbol 和多 symbol。
-    
+
     参数:
     - result: 单 symbol 时为 list，多 symbol 时为 dict。
     - init_balance: 初始资金。
     - risk_free_rate: 无风险利率，默认为美国国债收益率。
-    
+
     返回:
     - 一个包含总收益、胜率、盈亏比、最大回撤、年化收益率、夏普比率等指标的字典。
     """
-    
-    # 如果是单 symbol，直接转换为 DataFrame 进行计算
     if isinstance(result, list):
+        # 单 symbol 情况，直接调用单 symbol 评估函数
         return _evaluate_single_symbol(result, init_balance, risk_free_rate)
-    
-    # 如果是多 symbol，分别计算每个 symbol 的绩效，并汇总总的结果
     elif isinstance(result, dict):
-        total_stats = _initialize_stats()
-
-        total_trades = 0  # 记录总交易次数，用于加权平均
-        earliest_start_date = None
-        latest_end_date = None
-
-        for _, history in result.items():
-            symbol_stats = _evaluate_single_symbol(history, init_balance, risk_free_rate)
-            total_trades += len(history)
-            total_trades += symbol_stats['total_trades']
-
-            # 更新最早开始日期和最晚结束日期
-            if earliest_start_date is None or symbol_stats['start_date'] < earliest_start_date:
-                earliest_start_date = symbol_stats['start_date']
-            if latest_end_date is None or symbol_stats['end_date'] > latest_end_date:
-                latest_end_date = symbol_stats['end_date']
-            
-            # 累积每个 symbol 的绩效指标（按交易次数加权平均）
-            total_stats = _accumulate_stats(total_stats, symbol_stats, len(history))
-        
-        # 计算总的交易天数
-        total_days = (latest_end_date - earliest_start_date).days + 1 if earliest_start_date and latest_end_date else 1
-
-        # 计算加权平均的结果
-        total_stats = _finalize_stats(total_stats, total_trades)
-
-        # 添加总交易次数和平均每日交易次数
-        total_stats['total_trades'] = total_trades
-        total_stats['average_daily_trades'] = total_trades / total_days if total_days > 0 else 0
-        
-        return total_stats
-
+        # 多 symbol 情况，基于组合净值曲线计算综合指标
+        return _evaluate_multi_symbol(result, init_balance, risk_free_rate)
     else:
         raise ValueError("Invalid result format. Expected list or dict.")
 
@@ -255,6 +221,23 @@ def _evaluate_single_symbol(history, init_balance, risk_free_rate=US_TREASURY_YI
     annual_return = _calculate_annual_return(df, init_balance, total_pnl)
     sharpe_ratio = _calculate_sharpe_ratio(df, init_balance, risk_free_rate)
     
+    #平均持仓时长（按小时计）
+    df['holding_time'] = (df['close_date'] - df['open_date']).dt.total_seconds() / 3600  # 转换为小时
+    average_holding_time = df['holding_time'].mean()
+
+    #最大持仓时间
+    max_holding_time = df['holding_time'].max()
+
+    #单次最大盈利（盈利数额，发生时间）
+    max_profit_trade = df.loc[df['pnl'].idxmax()]
+    max_profit = max_profit_trade['pnl']
+    max_profit_time = max_profit_trade['close_date']
+
+    #单次最大亏损（亏损数额，发生时间）
+    max_loss_trade = df.loc[df['pnl'].idxmin()]
+    max_loss = max_loss_trade['pnl']
+    max_loss_time = max_loss_trade['close_date']
+
     return {
         'total_pnl': total_pnl,
         'win_rate': win_rate,
@@ -264,43 +247,17 @@ def _evaluate_single_symbol(history, init_balance, risk_free_rate=US_TREASURY_YI
         'sharpe_ratio': sharpe_ratio,
         'total_trades': total_trades,
         'average_daily_trades': average_daily_trades,
+        'average_holding_time_hours': average_holding_time,
+        'max_holding_time_hours': max_holding_time,
+        'max_profit': max_profit,
+        'max_profit_time': max_profit_time,
+        'max_loss': max_loss,
+        'max_loss_time': max_loss_time,
         'start_date': start_date,
         'end_date': end_date
     }
 
-# 初始化统计结果的函数
-def _initialize_stats():
-    return {
-        'total_pnl': 0,
-        'win_rate': 0,
-        'profit_loss_ratio': 0,
-        'max_drawdown': 0,
-        'annual_return': 0,
-        'sharpe_ratio': 0
-    }
-
-# 累积多 symbol 结果
-def _accumulate_stats(total_stats, symbol_stats, num_trades):
-    total_stats['total_pnl'] += symbol_stats['total_pnl']
-    total_stats['win_rate'] += symbol_stats['win_rate'] * num_trades
-    total_stats['profit_loss_ratio'] += symbol_stats['profit_loss_ratio'] * num_trades
-    total_stats['max_drawdown'] += symbol_stats['max_drawdown'] * num_trades
-    total_stats['annual_return'] += symbol_stats['annual_return'] * num_trades
-    total_stats['sharpe_ratio'] += symbol_stats['sharpe_ratio'] * num_trades
-    return total_stats
-
-# 最终计算加权平均的结果
-def _finalize_stats(total_stats, total_trades):
-    if total_trades > 0:
-        total_stats['win_rate'] /= total_trades
-        total_stats['profit_loss_ratio'] /= total_trades
-        total_stats['max_drawdown'] /= total_trades
-        total_stats['annual_return'] /= total_trades
-        total_stats['sharpe_ratio'] /= total_trades
-    return total_stats
-
 # 各个指标的计算函数
-
 def _calculate_win_rate(df):
     """ 计算胜率 """
     return (df['pnl'] > 0).mean()
@@ -360,3 +317,149 @@ def _calculate_sharpe_ratio(df, init_balance, risk_free_rate):
     daily_returns = df['pnl'] / init_balance
     excess_daily_returns = daily_returns - (risk_free_rate / DAYS_IN_ONE_YEAR)
     return (excess_daily_returns.mean() / excess_daily_returns.std()) * np.sqrt(TRADING_DAYS_IN_ONE_YEAR) if excess_daily_returns.std() != 0 else 0
+
+def _evaluate_multi_symbol(results, init_balance, risk_free_rate):
+    """
+    评估多 symbol 策略的绩效指标。
+
+    参数:
+    - results: 多 symbol 的交易结果字典，键为 symbol，值为交易结果列表。
+    - init_balance: 初始资金。
+    - risk_free_rate: 无风险利率。
+
+    返回:
+    - 一个包含总收益、胜率、盈亏比、最大回撤、年化收益率、夏普比率等指标的字典。
+    """
+
+    # 构建组合的净值时间序列
+    all_balances = pd.DataFrame()
+
+    # 用于计算整体的交易记录
+    all_trades = []
+
+    for symbol, trades in results.items():
+        df_trades = pd.DataFrame(trades)
+
+        if df_trades.empty:
+            print(f'No trading result for {symbol}')
+            continue
+
+        # 将该 symbol 的交易记录添加到总的交易记录中
+        all_trades.append(df_trades)
+
+        # 提取 'close_date' 和 'balance' 列，构建余额时间序列
+        balance_series = df_trades[['close_date', 'balance']].copy()
+        balance_series['close_date'] = pd.to_datetime(balance_series['close_date'])
+        balance_series.set_index('close_date', inplace=True)
+
+        # 添加初始余额点
+        earliest_date = balance_series.index.min()
+        initial_balance_df = pd.DataFrame({
+            'balance': [init_balance]
+        }, index=[earliest_date])
+
+        balance_series = pd.concat([initial_balance_df, balance_series], axis=0)
+        balance_series = balance_series.sort_index()
+        balance_series = balance_series[~balance_series.index.duplicated(keep='first')]
+
+        # 将该 symbol 的余额时间序列添加到 all_balances DataFrame 中
+        balance_series = balance_series.rename(columns={'balance': symbol})
+        all_balances = pd.concat([all_balances, balance_series], axis=1)
+
+    if all_balances.empty:
+        print('No trading data available.')
+        return
+
+    # 对齐所有 symbol 的日期索引
+    all_balances = all_balances.sort_index()
+    # 使用前向填充填充缺失值
+    all_balances = all_balances.fillna(method='ffill')
+    # 将初始缺失值填充为初始余额
+    all_balances = all_balances.fillna(init_balance)
+
+    # 获取所有的 symbol 列
+    symbol_columns = [col for col in all_balances.columns if col != 'Total Balance']
+    # 计算组合的总余额
+    all_balances['Total Balance'] = all_balances[symbol_columns].sum(axis=1)
+
+    # 计算组合的每日收益率
+    all_balances['Daily Return'] = all_balances['Total Balance'].pct_change().fillna(0)
+
+    # 计算总盈亏
+    total_pnl = all_balances['Total Balance'].iloc[-1] - init_balance
+
+    # 将所有交易记录合并
+    if all_trades:
+        all_trades_df = pd.concat(all_trades, ignore_index=True)
+    else:
+        print('No trading records available.')
+        return
+
+    # 计算胜率和盈亏比
+    win_rate = _calculate_win_rate(all_trades_df)
+    profit_loss_ratio = _calculate_profit_loss_ratio(all_trades_df)
+    total_trades = len(all_trades_df)
+
+    # 计算年化收益率
+    start_date = all_balances.index.min()
+    end_date = all_balances.index.max()
+    total_days = (end_date - start_date).days
+
+    annual_return = _calculate_annual_return_from_balance(all_balances['Total Balance'], init_balance, total_days)
+
+    # 计算最大回撤
+    max_drawdown = _calculate_max_drawdown_from_balance(all_balances['Total Balance'])
+
+    # 计算夏普比率
+    sharpe_ratio = _calculate_sharpe_ratio_from_returns(all_balances['Daily Return'], risk_free_rate)
+
+    # 平均每日交易次数
+    average_daily_trades = total_trades / total_days if total_days > 0 else 0
+
+    return {
+        'total_pnl': total_pnl,
+        'win_rate': win_rate,
+        'profit_loss_ratio': profit_loss_ratio,
+        'max_drawdown': max_drawdown,
+        'annual_return': annual_return,
+        'sharpe_ratio': sharpe_ratio,
+        'total_trades': total_trades,
+        'average_daily_trades': average_daily_trades
+    }
+
+# 基于组合净值计算年化收益率
+def _calculate_annual_return_from_balance(balance_series, init_balance, total_days):
+    """
+    基于组合的净值序列计算年化收益率。
+
+    参数：
+    - balance_series: 组合的净值时间序列。
+    - init_balance: 初始资金。
+    - total_days: 回测的总天数。
+
+    返回：
+    - annual_return: 年化收益率。
+    """
+    final_balance = balance_series.iloc[-1]
+    total_return = final_balance / init_balance
+    years = total_days / DAYS_IN_ONE_YEAR
+    if years <= 0:
+        return 0
+    annual_return = total_return ** (1 / years) - 1
+    return annual_return
+
+# 基于组合净值计算最大回撤
+def _calculate_max_drawdown_from_balance(balance_series):
+    """ 计算最大回撤 """
+    cumulative_max = balance_series.cummax()
+    drawdown = (balance_series - cumulative_max) / cumulative_max
+    return drawdown.min()
+
+# 基于组合的每日收益率计算夏普比率
+def _calculate_sharpe_ratio_from_returns(daily_returns, risk_free_rate):
+    """ 计算夏普比率 """
+    excess_daily_returns = daily_returns - (risk_free_rate / DAYS_IN_ONE_YEAR)
+    if excess_daily_returns.std() == 0:
+        return 0
+    sharpe_ratio = (excess_daily_returns.mean() / excess_daily_returns.std()) * np.sqrt(TRADING_DAYS_IN_ONE_YEAR)
+    return sharpe_ratio

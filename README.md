@@ -253,5 +253,6 @@ indicators = Neilyst.get_indicators(data, 'ohlc_ema_8', 'ohlc_ema_30', 'normaliz
 update: 现在Pnl可视化会从初始资金开始画图而不是第一次交易之后的余额。
 
 2024.11.08  
-fix: 修复了一个计算年化收益率的bug，现在年化收益率的结果应当是正确的了。
-add: 新增了show_total_pnl方法，现在可以显示多symbol的总净值曲线了。
+fix: 修复了一个计算年化收益率的bug，现在年化收益率的结果应当是正确的了。  
+add: 新增了show_total_pnl方法，现在可以显示多symbol的总净值曲线了。  
+update: 现在单symbol回测结果评估新增了如下指标：平均持仓时长（按小时计），最大持仓时间，单次最大盈利（盈利数额，发生时间），单次最大亏损（亏损数额，发生时间）。

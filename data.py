@@ -152,7 +152,8 @@ def _get_single_symbol_klines(symbol=None, start=None, end=None, timeframe='1h',
     all_klines = _aggregate_data(data_path, start, end)
 
     # drop timestamp column
-    all_klines = all_klines.drop(columns=['timestamp'])
+    if 'timestamp' in all_klines.columns:
+        all_klines = all_klines.drop(columns=['timestamp'])
 
     return all_klines
 

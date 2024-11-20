@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from .utils.setup import init_ccxt_exchange
 from .utils.folder import check_folder_exists, creat_folder, get_current_path
 
-def get_klines(symbol=None, start=None, end=None, timeframe='1h', auth=True, retry_count=3, pause=0.001, exchange_name='binanceusdm', proxy='http://127.0.0.1:7890/'):
+def get_klines(symbol=None, start=None, end=None, timeframe='1h', auth=True, retry_count=3, pause=0.001, exchange_name='binanceusdm', proxy='http://127.0.0.1:7890/', data_path=None):
     """
     获取单个或多个 symbol 的 K 线数据。
     
@@ -23,35 +23,33 @@ def get_klines(symbol=None, start=None, end=None, timeframe='1h', auth=True, ret
     """
     if isinstance(symbol, str):
         # 处理单个 symbol 的情况
-        return _get_single_symbol_klines(symbol, start, end, timeframe, auth, retry_count, pause, exchange_name, proxy)
+        return _get_single_symbol_klines(symbol, start, end, timeframe, auth, retry_count, pause, exchange_name, proxy, data_path)
     elif isinstance(symbol, list):
         # 处理多个 symbol 的情况
         all_data = {}
         for sym in symbol:
-            data = _get_single_symbol_klines(sym, start, end, timeframe, auth, retry_count, pause, exchange_name, proxy)
+            data = _get_single_symbol_klines(sym, start, end, timeframe, auth, retry_count, pause, exchange_name, proxy, data_path)
             all_data[sym] = data
 
         return all_data
     else:
         raise ValueError("symbol 参数必须是字符串或列表")
 
-def aggregate_custom_timeframe(symbol, start, end, custom_timeframe, exchange_name='binanceusdm', proxy='http://127.0.0.1:7890/', auth=True):
+def aggregate_custom_timeframe(symbol, start, end, custom_timeframe, exchange_name='binanceusdm', proxy='http://127.0.0.1:7890/', auth=True, data_path=None):
     """
     聚合自定义时间周期的K线数据。
-    
-    参数:
-    - symbol: 交易对名称，例如 'BTC/USDT'
-    - start: 开始日期，格式 'YYYY-MM-DDTHH:MM:SSZ'
-    - end: 结束日期，格式 'YYYY-MM-DDTHH:MM:SSZ'
-    - custom_timeframe: 自定义的时间周期，例如 '2h', '3h'
-    - exchange_name: 交易所名称，默认 'binanceusdm'
-    - proxy: 代理服务器地址，例如 'http://127.0.0.1:7890/'
     """
     # 确定1分钟数据的存储路径
     timeframe = '1m'
     symbol_sp = symbol.split('/')
-    current_path = get_current_path()
-    data_path = f'{current_path}/data/{exchange_name}-{symbol_sp[0]}/{timeframe}'
+
+    if data_path is None:
+        # 使用默认路径
+        current_path = get_current_path()
+        data_path = f'{current_path}/data/{exchange_name}-{symbol_sp[0]}/{timeframe}'
+    else:
+        # 使用传入的 data_path，并添加子目录
+        data_path = os.path.join(data_path, f'{exchange_name}-{symbol_sp[0]}', timeframe)
 
     # 检查并拉取缺失的1分钟数据
     if auth:
@@ -72,7 +70,11 @@ def aggregate_custom_timeframe(symbol, start, end, custom_timeframe, exchange_na
     aggregated_klines.index = all_klines.index[::custom_minutes][:len(aggregated_klines)]
 
     # 保存聚合后的数据
-    custom_data_path = f'{current_path}/data/{exchange_name}-{symbol_sp[0]}/{custom_timeframe}'
+    if data_path is None:
+        custom_data_path = f'{current_path}/data/{exchange_name}-{symbol_sp[0]}/{custom_timeframe}'
+    else:
+        custom_data_path = os.path.join(data_path, f'{exchange_name}-{symbol_sp[0]}', custom_timeframe)
+
     _save_data(custom_data_path, aggregated_klines)
 
     return aggregated_klines
@@ -122,14 +124,20 @@ def _fetch_klines(symbol=None, start=None, end=None, timeframe='1h', exchange=No
 
     return df
 
-def _get_single_symbol_klines(symbol=None, start=None, end=None, timeframe='1h', auth=True, retry_count=3, pause=0.001, exchange_name='binanceusdm', proxy='http://127.0.0.1:7890/'):
+def _get_single_symbol_klines(symbol=None, start=None, end=None, timeframe='1h', auth=True, retry_count=3, pause=0.001, exchange_name='binanceusdm', proxy='http://127.0.0.1:7890/', data_path=None):
     """
     获取单个 symbol 的 K 线数据。
     """
     exchange = init_ccxt_exchange(exchange_name, proxy)
     symbol_sp = symbol.split('/')
-    current_path = get_current_path()
-    data_path = f'{current_path}/data/{exchange_name}-{symbol_sp[0]}/{timeframe}'
+
+    if data_path is None:
+        # 使用默认路径
+        current_path = get_current_path()
+        data_path = f'{current_path}/data/{exchange_name}-{symbol_sp[0]}/{timeframe}'
+    else:
+        # 使用传入的 data_path，并添加子目录
+        data_path = os.path.join(data_path, f'{exchange_name}-{symbol_sp[0]}', timeframe)
 
     if auth:
         missing_periods = _check_local_data(data_path, start, end, timeframe)

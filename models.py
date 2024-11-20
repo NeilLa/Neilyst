@@ -77,6 +77,7 @@ class Position():
         self.float_profit = 0 # 浮动盈亏
         self.open_date = None
         self.close_date = None
+        self.trade_cost = 0 # 手续费和滑点
 
     def update_float_profit(self, current_price):
         # 根据当前价格更新浮动盈亏

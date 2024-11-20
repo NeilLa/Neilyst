@@ -64,66 +64,104 @@ def _single_symbol_engine(symbol, start, end, strategy, proxy):
         signal = strategy.run(index, row, current_pos, current_balance, symbol)
 
         if signal is not None:
-            # 初始化交易成本
-            trade_cost = 0 # 包括手续费和模拟滑点损耗
             # 开仓逻辑
             if signal.dir == 'long' or signal.dir == 'short':
-                # 计算交易成本
-                trade_cost = signal.amount * signal.price * (trading_fee_ratio + slippage_ratio)
-                # 执行开平仓操作
+                # 计算开仓时的交易费用
+                open_cost = signal.amount * signal.price
+                trade_cost = open_cost * (trading_fee_ratio + slippage_ratio)
+                # 执行开仓操作
                 current_pos.open(signal.price, signal.amount, signal.dir, index)
+                current_pos.trade_cost = trade_cost  # 记录开仓时的交易费用
                 if signal.dir == 'long':
-                    current_balance -= signal.amount * signal.price + trade_cost
+                    # 更新余额
+                    current_balance -= open_cost + trade_cost
                 elif signal.dir == 'short':
-                    current_balance += signal.amount * signal.price + trade_cost
+                    # 更新余额，只扣除交易费用（假设无需保证金）
+                    current_balance -= trade_cost
             elif signal.dir == 'close':
                 close_amount = min(signal.amount, current_pos.amount)
                 if close_amount > 0:
-                    trade_cost = close_amount * signal.price * (trading_fee_ratio + slippage_ratio)
                     if current_pos.dir == 'long':
-                        current_balance += close_amount * signal.price - trade_cost
+                        # 计算卖出所得
+                        proceeds = close_amount * signal.price
+                        trade_cost = proceeds * (trading_fee_ratio + slippage_ratio)
+                        net_proceeds = proceeds - trade_cost
+                        # 更新余额
+                        current_balance += net_proceeds
+                        # 计算净利润
+                        profit = net_proceeds - (current_pos.open_price * close_amount + current_pos.trade_cost)
+                        # 记录平仓交易费用
+                        current_pos.close_trade_cost = trade_cost
                     elif current_pos.dir == 'short':
-                        current_balance -= signal.price * close_amount - trade_cost
+                        # 计算买入成本
+                        cost = close_amount * signal.price
+                        trade_cost = cost * (trading_fee_ratio + slippage_ratio)
+                        net_cost = cost + trade_cost
+                        # 计算净利润
+                        profit = (current_pos.open_price * close_amount - net_cost) - current_pos.trade_cost
+                        # 更新余额
+                        current_balance += profit
+                        # 记录平仓交易费用
+                        current_pos.close_trade_cost = trade_cost
+                    # 执行平仓
                     current_pos.close(signal.price, close_amount, index)
 
-                # 如果完全平仓，则视为本次交易结束
-                if current_pos.amount == 0:
-                    # 记录仓位
-                    pos_history.append({
-                        'open_date': current_pos.open_date,
-                        'close_date': current_pos.close_date,
-                        'dir': current_pos.dir,
-                        'open_price': current_pos.open_price,
-                        'close_price': current_pos.close_price,
-                        'amount': abs(current_pos.pnl / (current_pos.open_price - current_pos.close_price)),
-                        'pnl': current_pos.pnl,
-                        'balance': current_balance
-                    })
+                    # 如果完全平仓，则视为本次交易结束
+                    if current_pos.amount == 0:
+                        # 记录仓位
+                        pos_history.append({
+                            'open_date': current_pos.open_date,
+                            'close_date': current_pos.close_date,
+                            'dir': current_pos.dir,
+                            'open_price': current_pos.open_price,
+                            'close_price': current_pos.close_price,
+                            'amount': current_pos.amount,
+                            'pnl': profit,
+                            'open_fee': current_pos.trade_cost,
+                            'close_fee': current_pos.close_trade_cost,
+                            'balance': current_balance
+                        })
 
-                    # 重新初始化pos对象
-                    current_pos = Position(symbol)
+                        # 重新初始化pos对象
+                        current_pos = Position(symbol)
 
     # 整体回测结束，平掉所有仓位
     if current_pos.amount > 0:
         final_price = ticker_data.iloc[-1]['close']
-        current_pos.close(final_price, current_pos.amount, ticker_data.index[-1])
-        trade_cost = current_pos.amount * final_price * (trading_fee_ratio + slippage_ratio)
-
-        # 计算最终余额
         if current_pos.dir == 'long':
-            current_balance += current_pos.amount * final_price - trade_cost
+            # 计算卖出所得
+            proceeds = current_pos.amount * final_price
+            trade_cost = proceeds * (trading_fee_ratio + slippage_ratio)
+            net_proceeds = proceeds - trade_cost
+            # 更新余额
+            current_balance += net_proceeds
+            # 计算净利润
+            profit = net_proceeds - (current_pos.open_price * current_pos.amount + current_pos.trade_cost)
+            # 记录平仓交易费用
+            current_pos.close_trade_cost = trade_cost
         elif current_pos.dir == 'short':
-            current_balance -= (current_pos.open_price - final_price) * current_pos.amount
+            # 计算买入成本
+            cost = current_pos.amount * final_price
+            trade_cost = cost * (trading_fee_ratio + slippage_ratio)
+            net_cost = cost + trade_cost
+            # 计算净利润
+            profit = (current_pos.open_price * current_pos.amount - net_cost) - current_pos.trade_cost
+            # 更新余额
+            current_balance += profit
+            # 记录平仓交易费用
+            current_pos.close_trade_cost = trade_cost
         
         # 记录最后仓位
         pos_history.append({
             'open_date': current_pos.open_date,
-            'close_date': current_pos.close_date,
+            'close_date': ticker_data.index[-1],
             'dir': current_pos.dir,
             'open_price': current_pos.open_price,
-            'close_price': current_pos.close_price,
-            'amount': abs(current_pos.pnl / (current_pos.open_price - current_pos.close_price)),
-            'pnl': current_pos.pnl,
+            'close_price': final_price,
+            'amount': current_pos.amount,
+            'pnl': profit,
+            'open_fee': current_pos.trade_cost,
+            'close_fee': current_pos.close_trade_cost,
             'balance': current_balance  
         })
         

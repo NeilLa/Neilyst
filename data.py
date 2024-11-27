@@ -42,27 +42,26 @@ def aggregate_custom_timeframe(symbol, start, end, custom_timeframe, exchange_na
     # 确定1分钟数据的存储路径
     timeframe = '1m'
     symbol_sp = symbol.split('/')
-
     if data_path is None:
         # 使用默认路径
         current_path = get_current_path()
-        data_path = f'{current_path}/data/{exchange_name}-{symbol_sp[0]}/{timeframe}'
+        data_path_1m = f'{current_path}/data/{exchange_name}-{symbol_sp[0]}/{timeframe}'
     else:
         # 使用传入的 data_path，并添加子目录
-        data_path = os.path.join(data_path, f'{exchange_name}-{symbol_sp[0]}', timeframe)
+        data_path_1m = os.path.join(data_path, f'{exchange_name}-{symbol_sp[0]}', timeframe)
 
     # 检查并拉取缺失的1分钟数据
     if auth:
-        missing_periods = _check_local_data(data_path, start, end, timeframe)
+        missing_periods = _check_local_data(data_path_1m, start, end, timeframe)
         if missing_periods:
             format_missing_periods = _format_missing_data(missing_periods)
             exchange = init_ccxt_exchange(exchange_name, proxy)
             for period in format_missing_periods:
                 start_time, end_time = period
                 klines_1m = _fetch_klines(symbol, start_time, end_time, timeframe, exchange)
-                _save_data(data_path, klines_1m)
+                _save_data(data_path_1m, klines_1m)
     # 聚合数据为自定义时间周期
-    all_klines = _aggregate_data(data_path, start, end)
+    all_klines = _aggregate_data(data_path_1m, start, end)
     custom_minutes = _convert_to_minutes(custom_timeframe)
     aggregated_klines = _custom_resampler(all_klines, custom_minutes)
 

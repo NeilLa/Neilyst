@@ -2,7 +2,9 @@ from numpy import nan as npNan
 from pandas_ta import Imports
 from pandas_ta.utils import get_offset, verify_series
 
+# def ohlc_ema(open, high, low, close, length=None, offset=None, **kwargs):
 def ohlc_ema(open, high, low, close, length=None, offset=None, **kwargs):
+
     """Indicator: EMA of OHLC/4"""
     # Validate Arguments
     length = int(length) if length and length > 0 else 10

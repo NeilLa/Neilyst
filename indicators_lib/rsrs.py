@@ -20,7 +20,7 @@ def rsrs(high, low, close, length=None, std_length=None, offset=None, **kwargs):
     low = verify_series(low)
     close = verify_series(close)
 
-    if high is None or low is None or close is None:
+    if high is None or low is None or close is None or open is None:
         return
 
     # 初始化 DataFrame

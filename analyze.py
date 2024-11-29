@@ -2,11 +2,41 @@
 # 2014.9.14新添加了因子分析工具factor_analyzer
 
 import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+import statsmodels.api as sm
 from .utils.magic import PNL_THRESHOLD
 
 class Factor_Analyzer():
-    def __init__(self):
-        pass
+    def __init__(self, indicators):
+        self.indicators = indicators
+    
+    def plot_factor_vs_return(self, factor_column, future_period=1):
+        """
+        绘制因子与未来收益的散点图 并最小二乘拟合直线
+
+        params:
+        factor_column (str): 因子列名
+        future_period (int): 计算未来收益的周期
+        """
+        data = self.indicators.copy()
+        data['future_return'] = data['close'].shift(-future_period) / data['close'] - 1
+        clean_data = data.dropna(subset=[factor_column, 'future_return'])
+        
+        # 绘制散点图并添加拟合直线
+        plt.figure(figsize=(10, 6))
+        sns.regplot(x=factor_column, y='future_return', data=clean_data,
+                    scatter_kws={'alpha': 0.5}, line_kws={'color': 'red'})
+        plt.title(f'{factor_column} VS {future_period}')
+        plt.xlabel(f'{factor_column} Value')
+        plt.ylabel(f'Future Return')
+        plt.show()
+
+        # 回归模型详细信息
+        X = sm.add_constant(clean_data[factor_column])
+        y = clean_data['future_return']
+        model = sm.OLS(y, X).fit()
+        print(model.summary())
 
 def load_history(path):
     # 加载账单数据

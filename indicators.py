@@ -98,7 +98,7 @@ def _calculate_indicators_for_single_symbol(data, *args):
                 indicators_df[col_name] = result
 
             # 填充空值
-            indicators_df = indicators_df.fillna(method='bfill')
+            # indicators_df = indicators_df.fillna(method='bfill')
         except Exception as e:
             print(f'Error calculating indicator {name}: {e}')
             import traceback

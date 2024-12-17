@@ -43,6 +43,9 @@ def bollinger_k(close, length=None, offset=None, **kwargs):
     
     # Calculate K Value
     k_value = (close - ma) / std
+
+    # Average K Value
+    # k_value = k_value.rolling(window=length).mean()
     
     # Apply offset
     if offset != 0:

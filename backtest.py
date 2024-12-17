@@ -44,6 +44,20 @@ def backtest(symbol, start, end, strategy, proxy='http://127.0.0.1:7890/'):
 
     return result
 
+def cross_sectional_backtest(universe_data, symbol_selector, signal_generator, start, end):
+    """
+    截面策略回测引擎
+    输入全币种数据->symbol_selector
+    返回一个dict, key为选出的一个symbol, value是一个具体的值, 可以是系数, 权重等等
+
+    这个dict输入signal_generator, 这个函数应该自动提取这些币的数据, 然后进行回测
+    最终返回一个交易信号
+
+    回测完成后, 整理统计交易信号
+    并生成result
+    """
+    pass
+
 def _single_symbol_engine(symbol, start, end, strategy, proxy):
     # 获取1min数据
     ticker_data = get_klines(symbol, start, end, '1m', proxy=proxy)

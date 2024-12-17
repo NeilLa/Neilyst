@@ -37,6 +37,42 @@ class Factor_Analyzer():
         y = clean_data['future_return']
         model = sm.OLS(y, X).fit()
         print(model.summary())
+        
+    def fit_multi_factor_model(self, factor_columns, future_period=1):
+        """
+        使用多因子进行线性回归，预测未来收益，并评估模型表现
+
+        params:
+        factor_columns (list): 因子列名列表
+        future_period (int): 计算未来收益的周期
+        """
+        data = self.indicators.copy()
+        data['future_return'] = data['close'].shift(-future_period) / data['close'] - 1
+        clean_data = data.dropna(subset=factor_columns + ['future_return'])
+
+        # 多因子线性回归
+        X = sm.add_constant(clean_data[factor_columns])
+        y = clean_data['future_return']
+        model = sm.OLS(y, X).fit()
+
+        # 回归结果与分析
+        print("多因子回归结果：")
+        print(model.summary())
+
+        # 绘制预测值与实际值的散点图
+        predicted = model.predict(X)
+        plt.figure(figsize=(10, 6))
+        plt.scatter(predicted, clean_data['future_return'], alpha=0.5)
+        plt.plot(predicted, predicted, color='red', linestyle='--', linewidth=2, label='Perfect Prediction')
+        plt.title('Predicted vs Actual Future Return')
+        plt.xlabel('Predicted Future Return')
+        plt.ylabel('Actual Future Return')
+        plt.grid(True)
+        plt.legend()
+        plt.show()
+
+        # 返回模型和数据
+        return model, clean_data
 
 def load_history(path):
     # 加载账单数据

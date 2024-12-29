@@ -2,6 +2,8 @@
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 def show_pnl(data, result, init_balance, indicators=None):
     df = pd.DataFrame(data)
@@ -216,41 +218,57 @@ def show_multi_symbol_pnl(results, init_balance):
     plt.show()
 
 def show_indicators(data, indicators):
-    # 确定有多少个指标需要放在副图中
-    subplots_needed = sum(1 for indicator_name in indicators if indicator_name in ['rsi', 'volume', 'macd'])
+    # 确定有多少个需要放在副图中的指标
+    subplot_indicators = ['rsi', 'volume', 'macd']
+    indicators_for_subplots = [ind for ind in indicators if ind in subplot_indicators]
 
-    # 创建足够的子图来容纳所有指标
-    # 添加squeeze=False确保axes始终是数组形式
-    fig, axes = plt.subplots(subplots_needed + 1, 1, figsize=(15, 8), sharex=True, squeeze=False)
-    fig.subplots_adjust(hspace=0)  # 调整子图之间的间距
+    # 需要的子图数量：1个主图 + len(indicators_for_subplots) 个副图
+    rows = 1 + len(indicators_for_subplots)
 
-    # 主图显示价格和可能的一些其他指标
-    axes[0,0].plot(data.index, data['close'], label='Price')  # 修改为axes[0,0]访问第一个子图
-    
-    # 遍历所有指标，决定它们应该放在主图还是副图
-    subplot_index = 1  # 副图的索引从1开始
-    for indicator_name, indicator_values in indicators.items():
-        if indicator_name in ['rsi', 'volume', 'macd']:
-            # 放在副图
-            ax = axes[subplot_index, 0]  # 修改为axes[subplot_index, 0]
-            subplot_index += 1
-            if indicator_name == 'volume':
-                ax.bar(data.index, indicator_values, label=indicator_name)
-            else:
-                ax.plot(data.index, indicator_values, label=indicator_name)
-            ax.legend(loc='upper left')
+    # 创建子图布局，共享 x 轴
+    fig = make_subplots(rows=rows, cols=1, shared_xaxes=True, vertical_spacing=0.02)
+
+    # 在主图中绘制价格曲线
+    fig.add_trace(
+        go.Scatter(x=data.index, y=data['close'], name='Price'),
+        row=1, col=1
+    )
+
+    # 处理其他不在 subplot_indicators 列表中的指标，这些将与价格一起放在主图
+    main_chart_indicators = {k: v for k, v in indicators.items() if k not in subplot_indicators}
+    for indicator_name, indicator_values in main_chart_indicators.items():
+        fig.add_trace(
+            go.Scatter(x=data.index, y=indicator_values, name=indicator_name),
+            row=1, col=1
+        )
+
+    # 在副图中绘制 rsi、volume、macd 等指标
+    current_row = 2
+    for indicator_name in indicators_for_subplots:
+        indicator_values = indicators[indicator_name]
+        # volume 使用柱状图，其余用折线图
+        if indicator_name == 'volume':
+            fig.add_trace(
+                go.Bar(x=data.index, y=indicator_values, name='Volume'),
+                row=current_row, col=1
+            )
         else:
-            # 放在主图
-            axes[0,0].plot(data.index, indicator_values, label=indicator_name)  # 修改为axes[0,0]
+            fig.add_trace(
+                go.Scatter(x=data.index, y=indicator_values, name=indicator_name),
+                row=current_row, col=1
+            )
+        current_row += 1
 
-    axes[0,0].legend(loc='upper left')  # 修改为axes[0,0]
-    
-    # 允许用户放大缩小图表来观察细节
-    # 在jupter notebook中会有bug
-    # plt.get_current_fig_manager().toolbar.zoom()
+    # 调整布局
+    fig.update_layout(
+        title='Indicators',
+        height=600,  # 可以根据需要调整图表高度
+        hovermode='x unified',  # 当鼠标悬停时在竖直方向上统一显示指标值
+        legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01)
+    )
 
-    # 显示图表
-    plt.show()
+    # 显示交互式图表
+    fig.show()
 
 def show_return_distribution(results, bins=50):
     """

@@ -1,5 +1,21 @@
 import pandas as pd
 import numpy as np
+from scipy import stats
+from typing import Union
+
+def siegelslopes_ma(price_ser: Union[pd.Series, np.ndarray],method:str="hierarchical") -> float:
+    """Repeated Median (Siegel 1982)
+
+    Args:
+        price_ser (Union[pd.Series, np.ndarray]): index-date values-price or values-price
+
+    Returns:
+        float: float
+    """
+    from scipy import stats
+    n: int = len(price_ser)
+    res = stats.siegelslopes(price_ser, np.arange(n), method=method)
+    return res.intercept + res.slope * (n-1)
 
 def icu_ma(close, length=20, sensitivity=2.0, offset=None, **kwargs):
     """
@@ -21,22 +37,8 @@ def icu_ma(close, length=20, sensitivity=2.0, offset=None, **kwargs):
     sensitivity = float(sensitivity) if sensitivity > 0 else 2.0
     offset = int(offset) if offset else 0
     
-    # 计算价格波动率（使用ATR或价格变动）
-    price_change = close.diff().abs()  # 绝对价格变动
-    volatility = price_change.rolling(window=length).mean()  # 平均波动率（ATR的简化版）
-    
-    # 计算动态平滑因子（类似EMA的α值）
-    max_volatility = volatility.max()  # 获取波动率的最大值作为归一化基准
-    smooth_factor = sensitivity * (volatility / max_volatility).clip(lower=0.1, upper=1.0)
-    
     # 初始化ICU均线
-    icu_ma = pd.Series(np.nan, index=close.index)
-    icu_ma.iloc[0] = close.iloc[0]  # 初始化第一个值为收盘价
-    
-    # 迭代计算ICU均线
-    for i in range(1, len(close)):
-        alpha = smooth_factor.iloc[i]
-        icu_ma.iloc[i] = icu_ma.iloc[i-1] + alpha * (close.iloc[i] - icu_ma.iloc[i-1])
+    icu_ma = close.rolling(length).apply(siegelslopes_ma, raw=True)
     
     # 偏移处理
     if offset != 0:

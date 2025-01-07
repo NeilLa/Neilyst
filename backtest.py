@@ -61,6 +61,10 @@ def cross_sectional_backtest(universe_data, symbol_selector, signal_generator, s
 def _single_symbol_engine(symbol, start, end, strategy, proxy):
     # 获取1min数据
     ticker_data = get_klines(symbol, start, end, '1m', proxy=proxy)
+    indicators = strategy.indicators
+
+    final_data = _add_next_minute_close(indicators, ticker_data)
+
     # 初始化仓位历史记录
     current_pos = Position(symbol)
     pos_history = []
@@ -70,9 +74,9 @@ def _single_symbol_engine(symbol, start, end, strategy, proxy):
     trading_fee_ratio = strategy.trading_fee_ratio
     slippage_ratio = strategy.slippage_ratio
 
-    for index, row in tqdm(ticker_data.iterrows(), total=ticker_data.shape[0]):
+    for index, row in tqdm(final_data.iterrows(), total=final_data.shape[0]):
         # 先根据当前价格更新仓位的浮动盈亏
-        current_pos.update_float_profit(row['close'])
+        current_pos.update_float_profit(row['next_close'])
         
         # 从策略函数获取策略信号
         signal = strategy.run(index, row, current_pos, current_balance, symbol)
@@ -141,7 +145,7 @@ def _single_symbol_engine(symbol, start, end, strategy, proxy):
 
     # 整体回测结束，平掉所有仓位
     if current_pos.amount > 0:
-        final_price = ticker_data.iloc[-1]['close']
+        final_price = final_data.iloc[-1]['next_close']
         if current_pos.dir == 'long':
             # 计算卖出所得
             proceeds = current_pos.amount * final_price
@@ -168,7 +172,7 @@ def _single_symbol_engine(symbol, start, end, strategy, proxy):
         # 记录最后仓位
         pos_history.append({
             'open_date': current_pos.open_date,
-            'close_date': ticker_data.index[-1],
+            'close_date': final_data.index[-1],
             'dir': current_pos.dir,
             'open_price': current_pos.open_price,
             'close_price': final_price,
@@ -515,3 +519,15 @@ def _calculate_sharpe_ratio_from_returns(daily_returns, risk_free_rate):
         return 0
     sharpe_ratio = (excess_daily_returns.mean() / excess_daily_returns.std()) * np.sqrt(TRADING_DAYS_IN_ONE_YEAR)
     return sharpe_ratio
+
+def _add_next_minute_close(indicators, minute_data):
+    indicators = indicators.copy()
+    minute_data = minute_data.copy()
+
+    next_minute_times = indicators.index + pd.Timedelta(minutes=1)
+    next_close_series = minute_data['close'].reindex(next_minute_times)
+    indicators['next_close'] = next_close_series.values
+
+    indicators.dropna(subset=['next_close'], inplace=True)
+
+    return indicators
